@@ -31,37 +31,39 @@ def question_list(question_ids):
     # conn = urllib2.urlopen(question_url)
     # question_data = json.loads(conn.read())
     conn = urlopen(question_url)
-    question_data = json.loads(conn.read().decode('utf8'))
+    question_info = json.loads(conn.read().decode('utf8'))
     conn.close()
     levels = {}
-    for key4, value4 in question_data.items():
+    for key4, value4 in question_info.items():
         question_data = {}
-        if str(value4['question']['answer_type']) in ANSWER_TYPE_KEY:
-            question_data['id'] = str(value4['question']['id'])
-            question_data['question'] = value4['question']['content']#re.sub(regex, lambda m: "![]({})".format(m.group(0)), value4['question']['content'])
-            question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
-            possible_answers = []
-            correct_answer = []
-            for answer in value4['possible_answers']:
-                possible_answers.append(answer['content'])
-                if answer['is_correct']:
-                    correct_answer.append(answer['content'])
+        if question_info[str(key4)]['success']:
+            if str(value4['question']['answer_type']) in ANSWER_TYPE_KEY:
+                question_data['id'] = str(value4['question']['id'])
+                question_data['question'] = value4['question']['content']#re.sub(regex, lambda m: "![]({})".format(m.group(0)), value4['question']['content'])
+                question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
+                possible_answers = []
+                correct_answer = []
+                for answer in value4['possible_answers']:
+                    possible_answers.append(answer['content'])
+                    if answer['is_correct']:
+                        correct_answer.append(answer['content'])
 
-            if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]):
-                correct_answer = correct_answer[0]
+                if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]):
+                    correct_answer = correct_answer[0]
 
-            if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]) or str(value4['question']['answer_type']) == str(ANSWER_TYPE[1]):
-                question_data[(ANSWER_TYPE_KEY[(value4['question']['answer_type'])][2])] = possible_answers
-            question_data[(ANSWER_TYPE_KEY[(value4['question']['answer_type'])][0])] = correct_answer
-            level_val = value4['question']['difficulty_level']
-            if level_val not in levels:
-                val = 'level' + str(level_val)
-                levels[level_val] = { 'id': val, 'title':val, 'questions':[] }
+                if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]) or str(value4['question']['answer_type']) == str(ANSWER_TYPE[1]):
+                    question_data[(ANSWER_TYPE_KEY[(value4['question']['answer_type'])][2])] = possible_answers
+                question_data[(ANSWER_TYPE_KEY[(value4['question']['answer_type'])][0])] = correct_answer
+                level_val = value4['question']['difficulty_level']
+                if level_val not in levels:
+                    val = 'level' + str(level_val)
+                    levels[level_val] = { 'id': val, 'title':val, 'questions':[], 'mastery_model' : exercises.M_OF_N ,'license' : licenses.CC_BY_NC_SA }
 
 
-            levels[level_val]['questions'].append(question_data)
+                levels[level_val]['questions'].append(question_data)
         else:
-            print (value4['question']['answer_type'])
+            continue
+            
     return levels
 
 def get_magogenie_info_url():
@@ -126,16 +128,7 @@ def get_magogenie_info_url():
                             topic_data["children"].append(level)
                         
                     topics.append(topic_data)
-                    
-                topic_dict = dict((str(topic['id']), topic) for topic in topics)
-                
-                for topic in topics:
-                    if topic['ancestry'] != None and str(topic['ancestry']) in topic_dict:
-                        parent = topic_dict[str(topic['ancestry'])]
-                        question_parent = topic_dict[str(topic['id'])]
-                        parent.setdefault('children', []).append(topic)
-
-                result = [topic for topic in topics if topic['ancestry'] == None]
+                result = build_magogenie_tree(topics)
                 print (key + '--' + key1 + '--' + key2 )
                 standards['children'] = result	
                 
@@ -145,6 +138,20 @@ def get_magogenie_info_url():
     print("Done ...")
     return SAMPLE
 
+# Bulid magogenie_tree 
+def build_magogenie_tree(topics): 
+    topic_dict = dict((str(topic['id']), topic) for topic in topics)
+                
+    for topic in topics:
+        if topic['ancestry'] != None and str(topic['ancestry']) in topic_dict:
+            parent = topic_dict[str(topic['ancestry'])]
+            question_parent = topic_dict[str(topic['id'])]
+            parent.setdefault('children', []).append(topic)
+
+    result = [topic for topic in topics if topic['ancestry'] == None]
+
+    return result
+
 # Constructing Magogenie Channel
 def construct_channel(result=None):
 
@@ -152,7 +159,7 @@ def construct_channel(result=None):
 
     channel = Channel(
         domain="learningequality.org",
-        channel_id="Magogenie-channel",
+        channel_id="Magogenie-channel_v1",
         title="Magogenie channel",
     )
 
