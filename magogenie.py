@@ -23,7 +23,8 @@ ANSWER_TYPE_KEY = {
     'subjective':('answers',exercises.FREE_RESPONSE)
 }
 
-regex = re.compile('data:image\/jpeg;base64,(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)*')
+regex_image = re.compile('(?<=src=\\").*\.(jpeg|jpg|png|gif)\\){0}')
+regex_base64 = re.compile('data:image\/[A-Za-z]*;base64,(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)*')
 
 def question_list(question_ids):
     levels = {}
@@ -39,14 +40,17 @@ def question_list(question_ids):
         if question_info[str(key4)]['success']:
             if str(value4['question']['answer_type']) in ANSWER_TYPE_KEY:
                 question_data['id'] = str(value4['question']['id'])
-                question_data['question'] = value4['question']['content']#re.sub(regex, lambda m: "![]({})".format(m.group(0)), value4['question']['content'])
+                question_data['question'] = re.sub(regex_image, lambda m: "![]("+url+"{})".format(m.group(0)) if url not in m.group(0) else "![]({})".format(m.group(0)), value4['question']['content'])
+                #question_data['question'] = re.sub(regex_base64, lambda m : "![]({})".format(m.group(0)), question_data['question'])
                 question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
                 possible_answers = []
                 correct_answer = []
                 for answer in value4['possible_answers']:
-                    possible_answers.append(answer['content'])
+                    v = re.sub(regex_image, lambda m: "![]("+url+"{})".format(m.group(0)) if url not in m.group(0) else "![]({})".format(m.group(0)), answer['content'])
+                    #v = re.sub(regex_base64, lambda m: "![]({})".format(m.group(0)), v)
+                    possible_answers.append(v)
                     if answer['is_correct']:
-                        correct_answer.append(answer['content'])
+                        correct_answer.append(v)
 
                 if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]):
                     correct_answer = correct_answer[0]
@@ -113,7 +117,7 @@ def get_magogenie_info_url():
                         f = lambda A, n=6: [A[i:i+n] for i in range(0, len(A), n)]
                         levels = {}
                         p = Pool(5)
-                        arrlevels = p.map(question_list, f(value3['question_ids'])[:3])#, chunksize=6)
+                        arrlevels = p.map(question_list, f(value3['question_ids'])[:3])
                         p.close()
                         p.join()
 
@@ -135,7 +139,7 @@ def get_magogenie_info_url():
             board['children'].append(standards)
         
        SAMPLE.append(board)	  
-    #print("Done ...")
+    print("Done ...")
     return SAMPLE
 
 # Bulid magogenie_tree 
@@ -159,8 +163,8 @@ def construct_channel(result=None):
 
     channel = Channel(
         domain="learningequality.org",
-        channel_id="Magogenie-channel_v1",
-        title="Magogenie channel",
+        channel_id="Demo channel",
+        title="Demo channel",
     )
 
     _build_tree(channel, result_data)
