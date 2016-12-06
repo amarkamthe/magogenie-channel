@@ -135,7 +135,7 @@ def get_magogenie_info_url():
             board['children'].append(standards)
         
        SAMPLE.append(board)	  
-    #print("Done ...")
+    print("Done ...")
     return SAMPLE
 
 # Bulid magogenie_tree 
