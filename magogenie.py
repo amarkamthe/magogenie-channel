@@ -41,13 +41,15 @@ def question_list(question_ids):
             if str(value4['question']['answer_type']) in ANSWER_TYPE_KEY:
                 question_data['id'] = str(value4['question']['id'])
                 question_data['question'] = re.sub(regex_image, lambda m: "![]("+url+"{})".format(m.group(0)) if url not in m.group(0) else "![]({})".format(m.group(0)), value4['question']['content'])
-                #question_data['question'] = re.sub(regex_base64, lambda m : "![]({})".format(m.group(0)), question_data['question'])
+                question_data['question'] = re.sub(regex_base64, lambda m : "![]({})".format(m.group(0)), question_data['question'])
+
                 question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
                 possible_answers = []
                 correct_answer = []
                 for answer in value4['possible_answers']:
                     v = re.sub(regex_image, lambda m: "![]("+url+"{})".format(m.group(0)) if url not in m.group(0) else "![]({})".format(m.group(0)), answer['content'])
-                    #v = re.sub(regex_base64, lambda m: "![]({})".format(m.group(0)), v)
+
+                    v = re.sub(regex_base64, lambda m: "![]({})".format(m.group(0)), v)
                     possible_answers.append(v)
                     if answer['is_correct']:
                         correct_answer.append(v)
@@ -134,11 +136,12 @@ def get_magogenie_info_url():
                     topics.append(topic_data)
                 result = build_magogenie_tree(topics)
                 print (key + '--' + key1 + '--' + key2 )
-                standards['children'] = result	
+                standards['children'] = result  
                 
             board['children'].append(standards)
         
-       SAMPLE.append(board)	  
+
+       SAMPLE.append(board)   
     print("Done ...")
     return SAMPLE
 
