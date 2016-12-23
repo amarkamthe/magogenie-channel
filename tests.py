@@ -1,6 +1,6 @@
 #############################################################################
 #       pytest -x <file_name>            # stop after first failure         #
-#       pytest --maxfail=2 <file_name>   # stop after two failures          #                                              #
+#       pytest --maxfail=2 <file_name>   # stop after two failures          #
 #       pytest <file_name>               # run all the test cases           #
 #                                                                           #  
 #                                                                           #
