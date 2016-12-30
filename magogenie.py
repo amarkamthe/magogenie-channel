@@ -31,7 +31,8 @@ ANSWER_TYPE_KEY = {
 arrlevels = []
 
 # Regular expression for images 
-regex_image = re.compile('((/assets).*\.(jpeg|jpg|png|gif){1})')
+regex_image = re.compile('(?<=src=\").([^\\+]*\.(jpg|jpeg|png|gif){1})')
+# regex_image = re.compile('((/assets).*\.(jpeg|jpg|png|gif){1})')
 regex_base64 = re.compile('data:image\/[A-Za-z]*;base64,(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)*')
     
 
@@ -50,7 +51,7 @@ def question_list(question_ids):
         # this statement checks the success of question
         if question_info[str(key4)]["possible_answers"][0]["question_id"] not in temp  and question_info[str(key4)]['success']:  # If question response is success then only it will execute following steps
             # Print all IDs under the standard
-            print(question_info[str(key4)]["possible_answers"][0]["question_id"]) 
+            # print(question_info[str(key4)]["possible_answers"][0]["question_id"]) 
             # This checks answer_type of question is defined in ANSWER_TYPE_KEY
             if str(value4['question']['answer_type']) in ANSWER_TYPE_KEY:
                 question_data['id'] = str(value4['question']['id'])
@@ -86,7 +87,8 @@ def get_magogenie_info_url():
     data = json.loads(response)
     print ("Topic received")
     # To get boards in descending order used[::-1]
-    for key in sorted(data['boards'].keys())[::-1]:     
+    # We have tesing here only for BalBharati board 
+    for key in ['BalBharati']:#sorted(data['boards'].keys())[::-1]:     
         value = data['boards'][key]
         board = dict()
         board['id'] = key
@@ -94,7 +96,8 @@ def get_magogenie_info_url():
         board['description'] = key
         board['children'] = []
         # To get standards in ascending order
-        for key1 in sorted(value['standards'].keys()):  
+        # we have use 6th std for testing purpose
+        for key1 in ['6']:#sorted(value['standards'].keys()):  
             value1 = value['standards'][key1]
             print (key+" Standards - " + key1)
             standards = dict()
@@ -127,14 +130,13 @@ def get_magogenie_info_url():
                         f = lambda A, n=6: [A[i:i+n] for i in range(0, len(A), n)]
                         levels = {}
                         p = Pool(5)
-                        try:
-                            arrlevels = []
-                            arrlevels = p.map(question_list, f(value3['question_ids']))
-                            p.close()
-                            p.join()
-                            
-                        except Exception as e:
-                            print(e)
+                      
+                        #arrlevels = []
+                        arrlevels = p.map(question_list, f(value3['question_ids']))
+                        p.close()
+                        p.join()
+                        
+                        #print ("arrlevels",arrlevels)
                         # To convert multiple list into single list
                         newlist = list(itertools.chain(*arrlevels))  
                         # To sort data levelwise 
@@ -173,12 +175,13 @@ def get_magogenie_info_url():
             # Printing time and date of standard upload
             board['children'].append(standards)
         SAMPLE.append(board)
-    # To write SAMPLE result into backup.txt file
-    with open("backup.txt", 'wb') as f:  
-        # Pickle is used to write list data into file
-        pickle.dump(json.dumps(SAMPLE), f)  
-    print("Backup is written into backup.txt file")
+    # # To write SAMPLE result into backup.txt file
+    # with open("backup.txt", 'wb') as f:  
+    #     # Pickle is used to write list data into file
+    #     pickle.dump(json.dumps(SAMPLE), f)  
+    # print("Backup is written into backup.txt file")
     print("Done ...")
+    print ("Sample:",SAMPLE)
     return SAMPLE
 
 # Bulid magogenie_tree
@@ -203,8 +206,8 @@ def construct_channel(result=None):
     result_data = get_magogenie_info_url()
     channel = Channel(
         domain="learningequality.org",
-        channel_id="magogenie channel",
-        title="magogenie channel",
+        channel_id="magogenie updated channel",
+        title="magogenie updated channel",
     )
 
     _build_tree(channel, result_data)
