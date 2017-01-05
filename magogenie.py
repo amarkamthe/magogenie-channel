@@ -32,7 +32,7 @@ arrlevels = []
 
 # Regular expression for images 
 regex_image = re.compile('(?<=src=\").([^\\+]*\.(jpg|jpeg|png|gif){1})')
-# regex_image = re.compile('((/assets).*\.(jpeg|jpg|png|gif){1})')
+#regex_image = re.compile('((/assets).*\.(jpeg|jpg|png|gif){1})')
 regex_base64 = re.compile('data:image\/[A-Za-z]*;base64,(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)*')
     
 
@@ -181,7 +181,6 @@ def get_magogenie_info_url():
     #     pickle.dump(json.dumps(SAMPLE), f)  
     # print("Backup is written into backup.txt file")
     print("Done ...")
-    print ("Sample:",SAMPLE)
     return SAMPLE
 
 # Bulid magogenie_tree
@@ -209,13 +208,15 @@ def construct_channel(result=None):
         channel_id="magogenie updated channel",
         title="magogenie updated channel",
     )
-
+    print ("result_data:",result_data)
+    print ("Inside construct_channel")
     _build_tree(channel, result_data)
     raise_for_invalid_channel(channel)
     return channel
 
 # Build tree for channel
 def _build_tree(node, sourcetree):
+
     for child_source_node in sourcetree:
         try:
             kind = guess_content_kind(child_source_node.get("file"), child_source_node.get("questions"))
