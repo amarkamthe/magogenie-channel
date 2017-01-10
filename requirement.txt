@@ -1,1 +1,1 @@
-ricecooker==0.3.5rc20
+ricecooker==0.3.13

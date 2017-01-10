@@ -48,7 +48,7 @@ def question_list(question_ids):
     for key4, value4 in question_info.items():
         question_data = {}
         # This IDs are having two options correct instead of Single Selection
-        temp = [119742,119738,119744,119751]
+        temp = [119742,119738,119744,119751,98143]
         # this statement checks the success of question
         if question_info[str(key4)]["possible_answers"][0]["question_id"] not in temp  and question_info[str(key4)]['success']:  # If question response is success then only it will execute following steps
             # Print all IDs under the standard
@@ -58,8 +58,7 @@ def question_list(question_ids):
                 question_data['id'] = str(value4['question']['id'])
                 question_data['question'] = re.sub(regex_image, lambda m: "![]("+url+"{})".format(m.group(0)) if url not in m.group(0) else "![]({})".format(m.group(0)), value4['question']['content'])
                 question_data['question'] = re.sub(regex_base64, lambda m: "![]({})".format(m.group(0)), question_data['question'])
-                if str(value4['question']['id']) == "98507":
-                    print ("question_data:",question_data['question'])
+
                 question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
                 possible_answers = []
                 correct_answer = []
@@ -162,14 +161,6 @@ def get_magogenie_info_url():
                         arrlevels = []
                         arrlevels.append(levels)
 
-                        # 
-                        # for arrlevel in arrlevels:
-                        #     for key0, val0 in arrlevel.items():
-                        #         if key0 not in levels:
-                        #             levels[key0] = val0
-                        #         else:
-                        #             levels[key0]['questions'].extend(val0['questions'])
-
                         for index, level in levels.items():
                             topic_data["children"].append(level)
                     topics.append(topic_data)
@@ -213,6 +204,7 @@ def construct_channel(result=None):
         domain="learningequality.org",
         channel_id="magogenie updated channel 0.3.13.V5",
         title="magogenie updated channel 0.3.13.V5",
+
     )
     # print ("result_data:",result_data)
     print ("Inside construct_channel")
