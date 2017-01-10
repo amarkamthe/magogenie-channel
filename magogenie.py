@@ -31,8 +31,9 @@ ANSWER_TYPE_KEY = {
 arrlevels = []
 
 # Regular expression for images 
-regex_image = re.compile('(?<=src=\").([^\\+]*\.(jpg|jpeg|png|gif){1})')
-#regex_image = re.compile('((/assets).*\.(jpeg|jpg|png|gif){1})')
+# regex_image = re.compile('(?<=src=\").([^\\+]*\.(jpg|jpeg|png|gif){1})')
+# regex_image = re.compile('((/assets).*\.(jpeg|jpg|png|gif){1})')
+regex_image = re.compile('(\/assets.+?.(jpeg|jpg|png|gif){1})')
 regex_base64 = re.compile('data:image\/[A-Za-z]*;base64,(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)*')
     
 
@@ -41,13 +42,13 @@ def question_list(question_ids):
     levels = {}
     question_url = QUESTION_URL % (','.join(map(str, question_ids)))
     conn = urlopen(question_url)
-    question_info = json.loads(conn.read().decode('utf8'))
+    question_info = json.loads(conn.read().decode('utf-8'))
     conn.close()
     levels = [] 
     for key4, value4 in question_info.items():
         question_data = {}
         # This IDs are having two options correct instead of Single Selection
-        temp = [119742,119738,119744,119751]
+        temp = [119742,119738,119744,119751,98143]
         # this statement checks the success of question
         if question_info[str(key4)]["possible_answers"][0]["question_id"] not in temp  and question_info[str(key4)]['success']:  # If question response is success then only it will execute following steps
             # Print all IDs under the standard
@@ -57,7 +58,6 @@ def question_list(question_ids):
                 question_data['id'] = str(value4['question']['id'])
                 question_data['question'] = re.sub(regex_image, lambda m: "![]("+url+"{})".format(m.group(0)) if url not in m.group(0) else "![]({})".format(m.group(0)), value4['question']['content'])
                 question_data['question'] = re.sub(regex_base64, lambda m: "![]({})".format(m.group(0)), question_data['question'])
-
                 question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
                 possible_answers = []
                 correct_answer = []
@@ -77,14 +77,19 @@ def question_list(question_ids):
                 question_data[(ANSWER_TYPE_KEY[(value4['question']['answer_type'])][0])] = correct_answer
                 question_data["difficulty_level"] = value4['question']['difficulty_level']
                 levels.append(question_data)
+
         else:
             continue
+    #print ("levels:",levels)
     return levels
 
 def get_magogenie_info_url():
     SAMPLE = []
-    response = urlopen(TREE_URL).read().decode('utf8')
-    data = json.loads(response)
+    conn = urlopen(TREE_URL)
+    data = json.loads(conn.read().decode('utf-8'))
+    conn.close()
+    # response = urlopen((TREE_URL).read().decode())
+    # data = json.loads(response)
     print ("Topic received")
     # To get boards in descending order used[::-1]
     # We have tesing here only for BalBharati board 
@@ -97,7 +102,7 @@ def get_magogenie_info_url():
         board['children'] = []
         # To get standards in ascending order
         # we have use 6th std for testing purpose
-        for key1 in ['6']:#sorted(value['standards'].keys()):  
+        for key1 in ['6','7','8']:#sorted(value['standards'].keys()):  
             value1 = value['standards'][key1]
             print (key+" Standards - " + key1)
             standards = dict()
@@ -155,15 +160,6 @@ def get_magogenie_info_url():
                         arrlevels = []
                         arrlevels.append(levels)
 
-                        # 
-                        for arrlevel in arrlevels:
-                            for key0, val0 in arrlevel.items():
-                                if key0 not in levels:
-                                    levels[key0] = val0
-                                else:
-                                    levels[key0]['questions'].extend(val0['questions'])
-
-
                         for index, level in levels.items():
                             topic_data["children"].append(level)
                     topics.append(topic_data)
@@ -199,16 +195,16 @@ def build_magogenie_tree(topics):
 
     return result
 
-# Constructing Magogenie Channel
+# Constructing Magogenie Channelss
 def construct_channel(result=None):
 
     result_data = get_magogenie_info_url()
     channel = Channel(
         domain="learningequality.org",
-        channel_id="magogenie updated channel",
-        title="magogenie updated channel",
+        channel_id="magogenie balbharati updated channel ",
+        title="magogenie balbharati updated channel ",
     )
-    print ("result_data:",result_data)
+    # print ("result_data:",result_data)
     print ("Inside construct_channel")
     _build_tree(channel, result_data)
     raise_for_invalid_channel(channel)
