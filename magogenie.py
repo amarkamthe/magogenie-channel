@@ -28,12 +28,14 @@ ANSWER_TYPE_KEY = {
     'text': ('answers', exercises.INPUT_QUESTION),
     'subjective': ('answers', exercises.FREE_RESPONSE)
 }
+# List of question units 
 arrlevels = []
 
 # Regular expression for images 
 # regex_image = re.compile('(?<=src=\").([^\\+]*\.(jpg|jpeg|png|gif){1})')
 # regex_image = re.compile('((/assets).*\.(jpeg|jpg|png|gif){1})')
-regex_image = re.compile('(\/assets.+?.(jpeg|jpg|png|gif){1})')
+#regex_image = re.compile('(\/assets.+?.(jpeg|jpg|png|gif){1})')
+regex_image = re.compile('(\/assets.+?.(jpeg|jpg|png|gif){1})|\/wirispluginengine([^\"]+)\"')
 regex_base64 = re.compile('data:image\/[A-Za-z]*;base64,(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)*')
     
 
@@ -48,9 +50,12 @@ def question_list(question_ids):
     for key4, value4 in question_info.items():
         question_data = {}
         # This IDs are having two options correct instead of Single Selection
-        temp = [119742,119738,119744,119751,98143]
+        objQuestionList = [133233,98119,131794,131801,131796,131799,132146,103898,103896,131842,132220,132224,98143,131813,131829,131832,131827,131823,131814,131875,131881,132202,131882, \
+                           131878,124286,132781,51567,51565,133049,133124,133128,133267,133269,132777,132790,132779,132781,132791,132792,132793,132797,132888]
         # this statement checks the success of question
-        if question_info[str(key4)]["possible_answers"][0]["question_id"] not in temp  and question_info[str(key4)]['success']:  # If question response is success then only it will execute following steps
+        print ("question:",question_info[str(key4)]["possible_answers"][0]["question_id"])
+        print ("answer:",str(value4['question']['answer_type']))
+        if question_info[str(key4)]['success']:  # If question response is success then only it will execute following steps
             # Print all IDs under the standard
             # print(question_info[str(key4)]["possible_answers"][0]["question_id"]) 
             # This checks answer_type of question is defined in ANSWER_TYPE_KEY
@@ -58,7 +63,7 @@ def question_list(question_ids):
                 question_data['id'] = str(value4['question']['id'])
                 question_data['question'] = re.sub(regex_image, lambda m: "![]("+url+"{})".format(m.group(0)) if url not in m.group(0) else "![]({})".format(m.group(0)), value4['question']['content'])
                 question_data['question'] = re.sub(regex_base64, lambda m: "![]({})".format(m.group(0)), question_data['question'])
-
+                #question_data['unit'] = str(value4['question']['unit'])
                 question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
                 possible_answers = []
                 correct_answer = []
@@ -66,6 +71,7 @@ def question_list(question_ids):
                     v = re.sub(regex_image, lambda m: "![]("+url+"{})".format(m.group(0)) if url not in m.group(0) else "![]({})".format(m.group(0)), answer['content'])
 
                     v = re.sub(regex_base64, lambda m: "![]({})".format(m.group(0)), v)
+                     
                     possible_answers.append(v)
                     if answer['is_correct']:
                         correct_answer.append(v)
@@ -103,7 +109,7 @@ def get_magogenie_info_url():
         board['children'] = []
         # To get standards in ascending order
         # we have use 6th std for testing purpose
-        for key1 in ['6','7','8']:#sorted(value['standards'].keys()):  
+        for key1 in ['8']:#sorted(value['standards'].keys()):  
             value1 = value['standards'][key1]
             print (key+" Standards - " + key1)
             standards = dict()
@@ -137,10 +143,13 @@ def get_magogenie_info_url():
                         levels = {}
                         p = Pool(5)
                       
-                        #arrlevels = []
-                        arrlevels = p.map(question_list, f(value3['question_ids']))
-                        p.close()
-                        p.join()
+                        try:
+                            arrlevels = []
+                            arrlevels = p.map(question_list, f(value3['question_ids']))
+                            p.close()
+                            p.join()
+                        except Exception as e:
+                            print (e)
                         
                         #print ("arrlevels",arrlevels)
                         # To convert multiple list into single list
@@ -178,6 +187,7 @@ def get_magogenie_info_url():
     #     pickle.dump(json.dumps(SAMPLE), f)  
     # print("Backup is written into backup.txt file")
     print("Done ...")
+    #print ("SAMPLE:",SAMPLE)
     return SAMPLE
 
 # Bulid magogenie_tree
@@ -201,9 +211,9 @@ def construct_channel(result=None):
 
     result_data = get_magogenie_info_url()
     channel = Channel(
-        domain="learningequality.org",
-        channel_id="magogenie updated channel 0.3.13.V5",
-        title="magogenie updated channel 0.3.13.V5",
+        source_domain="learningequality.org",
+        source_id="MG Channel of 8th std image failed issue fixed",
+        title="MG Channel of 8th std image failed issue fixed",
 
     )
     # print ("result_data:",result_data)
@@ -223,7 +233,7 @@ def _build_tree(node, sourcetree):
 
         if kind == content_kinds.TOPIC:
             child_node = Topic(
-                id=child_source_node["id"],
+                source_id=child_source_node["id"],
                 title=child_source_node["title"],
                 author=child_source_node.get("author"),
                 description=child_source_node.get("description"),
@@ -234,7 +244,7 @@ def _build_tree(node, sourcetree):
 
         elif kind == content_kinds.EXERCISE:
             child_node = Exercise(
-                id=child_source_node["id"],
+                source_id=child_source_node["id"],
                 title=child_source_node["title"],
                 author=child_source_node.get("author"),
                 description=child_source_node.get("description"),
