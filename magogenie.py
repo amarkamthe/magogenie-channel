@@ -135,7 +135,7 @@ arrlevels = []
 
 regex_image = re.compile('(\/assets.+?.(jpeg|jpg|png|gif){1})|\/wirispluginengine([^\"]+)')
 regex_base64 = re.compile('data:image\/[A-Za-z]*;base64,(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)*')
-    
+regex_bmp = re.compile('((image\/bmp))')
 
 # This method takes question id and process it
 def question_list(question_ids):
@@ -157,6 +157,7 @@ def question_list(question_ids):
                 question_data['id'] = str(value4['question']['id'])
                 question_data['question'] = re.sub(regex_image, lambda m: "![]("+url+"{})".format(m.group(0)) if url not in m.group(0) else "![]({})".format(m.group(0)), value4['question']['content'])
                 question_data['question'] = re.sub(regex_base64, lambda m: "![]({})".format(m.group(0)), question_data['question'])
+                question_data['question'] = re.sub(regex_bmp, lambda m: "image/png".format(m.group(0)), question_data['question'])
                 #question_data['unit'] = str(value4['question']['unit'])
                 question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
                 possible_answers = []
@@ -165,6 +166,7 @@ def question_list(question_ids):
                     v = re.sub(regex_image, lambda m: "![]("+url+"{})".format(m.group(0)) if url not in m.group(0) else "![]({})".format(m.group(0)), answer['content'])
 
                     v = re.sub(regex_base64, lambda m: "![]({})".format(m.group(0)), v)
+                    v = re.sub(regex_bmp, lambda m: "image/png".format(m.group(0)), v)
                      
                     possible_answers.append(v)
                     if answer['is_correct']:
@@ -201,7 +203,7 @@ def get_magogenie_info_url():
         board['children'] = []
         # To get standards in ascending order
         # we have use 6th std for testing purpose
-        for key1 in ['6','7','8']:#sorted(value['standards'].keys()):  
+        for key1 in ['8']:#sorted(value['standards'].keys()):  
             value1 = value['standards'][key1]
             print (key+" Standards - " + key1)
             standards = dict()
@@ -304,11 +306,11 @@ def construct_channel(result=None):
     result_data = get_magogenie_info_url()
     channel = nodes.ChannelNode(
         source_domain="magogenie.com",
-        source_id="Magogenie BalBharati Channel",
-        title="Magogenie BalBharati Channel",
+        source_id="Magogenie BalBharati Channel to test Bmp images V1",
+        title="Magogenie BalBharati Channel to test Bmp images V1",
         thumbnail = "/Users/Admin/Documents/mago.png",
     )
-    print ("result_data:",result_data)
+    print ("result_data cdsdfssd:",result_data)
     print ("Inside construct_channel")
     _build_tree(channel, result_data)
     raise_for_invalid_channel(channel)
