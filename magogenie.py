@@ -147,7 +147,7 @@ def question_list(question_ids):
     levels = [] 
     for key4, value4 in question_info.items():
         question_data = {}
-        objQuestionList = [98513,133233,98143]
+        objQuestionList = [98513,133233,98143,53016,122401,122410,122412,122413]
         # this statement checks the success of question
         # print ("question:",question_info[str(key4)]["possible_answers"][0]["question_id"])
         # print ("answer:",str(value4['question']['answer_type']))
@@ -157,6 +157,7 @@ def question_list(question_ids):
                 question_data['id'] = str(value4['question']['id'])
                 question_data['question'] = re.sub(regex_image, lambda m: "![]("+url+"{})".format(m.group(0)) if url not in m.group(0) else "![]({})".format(m.group(0)), value4['question']['content'])
                 question_data['question'] = re.sub(regex_base64, lambda m: "![]({})".format(m.group(0)), question_data['question'])
+                # question_data['question'] = question_data['question'].replace('\n', '')
                 question_data['question'] = re.sub(regex_bmp, lambda m: "image/png".format(m.group(0)), question_data['question'])
                 #question_data['unit'] = str(value4['question']['unit'])
                 question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
@@ -203,7 +204,7 @@ def get_magogenie_info_url():
         board['children'] = []
         # To get standards in ascending order
         # we have use 6th std for testing purpose
-        for key1 in ['8']:#sorted(value['standards'].keys()):  
+        for key1 in ['6','7','8']:#sorted(value['standards'].keys()):  
             value1 = value['standards'][key1]
             print (key+" Standards - " + key1)
             standards = dict()
@@ -306,11 +307,11 @@ def construct_channel(result=None):
     result_data = get_magogenie_info_url()
     channel = nodes.ChannelNode(
         source_domain="magogenie.com",
-        source_id="Magogenie BalBharati Channel to test Bmp images V1",
-        title="Magogenie BalBharati Channel to test Bmp images V1",
+        source_id="Magogenie CBSE channel fixes ",
+        title="Magogenie CBSE channel fixes ",
         thumbnail = "/Users/Admin/Documents/mago.png",
     )
-    print ("result_data cdsdfssd:",result_data)
+    print ("result_data:",result_data)
     print ("Inside construct_channel")
     _build_tree(channel, result_data)
     raise_for_invalid_channel(channel)
