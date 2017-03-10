@@ -120,25 +120,26 @@ ANSWER_TYPE = [
         'radio',
         'multiple_select'
     ]
-
-
 # ANSWER_TYPE_KEY to define new types of questions
 ANSWER_TYPE_KEY = {
     'radio': ('correct_answer', exercises.SINGLE_SELECTION, 'all_answers'),
     'multiple_select': ('correct_answers', exercises.MULTIPLE_SELECTION, 'all_answers'),
     'number': ('answers', exercises.INPUT_QUESTION),
-    'text': ('answers', exercises.INPUT_QUESTION),
+    'text': ('answers'),
     'subjective': ('answers', exercises.FREE_RESPONSE)
 }
 # List of question units 
 arrlevels = []
 
 regex_image = re.compile('(\/assets.+?.(jpeg|jpg|png|gif){1})|\/wirispluginengine([^\"]+)')
+# regex_base64 = re.compile('data:image\/[A-Za-z]*;base64,(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=|[&#A-Za-z0-9;+\/])*')
 regex_base64 = re.compile('data:image\/[A-Za-z]*;base64,(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)*')
 regex_bmp = re.compile('((image\/bmp))')
+regex_gif = re.compile('((image\/gif))')
 
 # This method takes question id and process it
 def question_list(question_ids):
+    global count
     levels = {}
     question_url = QUESTION_URL % (','.join(map(str, question_ids)))
     conn = urlopen(question_url)
@@ -147,55 +148,62 @@ def question_list(question_ids):
     levels = [] 
     for key4, value4 in question_info.items():
         question_data = {}
-        objQuestionList = [98513,133233,98143,53016,122401,122410,122412,122413]
         # this statement checks the success of question
-        # print ("question:",question_info[str(key4)]["possible_answers"][0]["question_id"])
-        # print ("answer:",str(value4['question']['answer_type']))
-        if question_info[str(key4)]["possible_answers"][0]["question_id"] not in objQuestionList  and question_info[str(key4)]['success']: # If question response is success then only it will execute following steps
+        if question_info[str(key4)]['success']: # If question response is success then only it will execute following steps
             # This checks answer_type of question is defined in ANSWER_TYPE_KEY
-            if str(value4['question']['answer_type']) in ANSWER_TYPE_KEY:
-                question_data['id'] = str(value4['question']['id'])
-                question_data['question'] = re.sub(regex_image, lambda m: "![]("+url+"{})".format(m.group(0)) if url not in m.group(0) else "![]({})".format(m.group(0)), value4['question']['content'])
-                question_data['question'] = re.sub(regex_base64, lambda m: "![]({})".format(m.group(0)), question_data['question'])
-                # question_data['question'] = question_data['question'].replace('\n', '')
-                question_data['question'] = re.sub(regex_bmp, lambda m: "image/png".format(m.group(0)), question_data['question'])
-                #question_data['unit'] = str(value4['question']['unit'])
-                question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
-                possible_answers = []
-                correct_answer = []
-                for answer in value4['possible_answers']:
-                    v = re.sub(regex_image, lambda m: "![]("+url+"{})".format(m.group(0)) if url not in m.group(0) else "![]({})".format(m.group(0)), answer['content'])
+            if (value4['question']['answer_type'] != "text"):
+                if str(value4['question']['answer_type']) in ANSWER_TYPE_KEY:
+                    question_data['id'] = str(value4['question']['id'])
+                    question_data['question'] = value4['question']['content'].replace('&#10;', '')
+                    question_data['question'] = question_data['question'].replace('\n', '')
+                    question_data['question'] = re.sub(regex_image, lambda m: "![]("+url+"{})".format(m.group(0)) if url not in m.group(0) else "![]({})".format(m.group(0)),  question_data['question'])
+                    question_data['question'] = re.sub(regex_base64, lambda m: "![]({})".format(m.group(0)), question_data['question'])
+                    question_data['question'] = re.sub(regex_bmp, lambda m: "image/png".format(m.group(0)), question_data['question'])
+                    question_data['question'] = re.sub(regex_gif, lambda m: "image/png".format(m.group(0)), question_data['question'])
+                    question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]            
+        
+                    possible_answers = []
+                    correct_answer = []
+                    for answer in value4['possible_answers']:
+                        v = answer['content'].replace('&#10;', '')  # to handle invalid base64 string
+                        v = v.replace('\n', '') # to handle invalid base64 string
+                        v = re.sub(regex_image, lambda m: "![]("+url+"{})".format(m.group(0)) if url not in m.group(0) else "![]({})".format(m.group(0)), v)
 
-                    v = re.sub(regex_base64, lambda m: "![]({})".format(m.group(0)), v)
-                    v = re.sub(regex_bmp, lambda m: "image/png".format(m.group(0)), v)
-                     
-                    possible_answers.append(v)
-                    if answer['is_correct']:
-                        correct_answer.append(v)
+                        v = re.sub(regex_base64, lambda m: "![]({})".format(m.group(0)), v)
+                        v = re.sub(regex_bmp, lambda m: "image/png".format(m.group(0)), v) # converted bmp images to the png format as per ricecooker validation
+                        v = re.sub(regex_gif, lambda m: "image/png".format(m.group(0)), v) # converted gif images to supported format of ricecooker
+                        
+                        possible_answers.append(v)
+                        if answer['is_correct']:
+                            correct_answer.append(v)
 
-                if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]):
-                    correct_answer = correct_answer[0]
+                    if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]):
+                        correct_answer = correct_answer[0]
 
-                if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]) or str(value4['question']['answer_type']) == str(ANSWER_TYPE[1]):
-                    question_data[(ANSWER_TYPE_KEY[(value4['question']['answer_type'])][2])] = possible_answers
-                question_data[(ANSWER_TYPE_KEY[(value4['question']['answer_type'])][0])] = correct_answer
-                question_data["difficulty_level"] = value4['question']['difficulty_level']
-                levels.append(question_data)
-
+                    if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]) or str(value4['question']['answer_type']) == str(ANSWER_TYPE[1]):
+                        question_data[(ANSWER_TYPE_KEY[(value4['question']['answer_type'])][2])] = possible_answers
+                    question_data[(ANSWER_TYPE_KEY[(value4['question']['answer_type'])][0])] = correct_answer
+                    question_data["difficulty_level"] = value4['question']['difficulty_level']
+                    levels.append(question_data)
         else:
             continue
     #print ("levels:",levels)
+
     return levels
 
 def get_magogenie_info_url():
     SAMPLE = []
-    conn = urlopen(TREE_URL)
-    data = json.loads(conn.read().decode('utf-8'))
-    conn.close()
+    try:
+        conn = urlopen(TREE_URL,timeout=30)
+        data = json.loads(conn.read().decode('utf-8'))
+        conn.close()
+    except Exception as e:
+        print(e)
+    
     print ("Topic received")
     # To get boards in descending order used[::-1]
     # We have tesing here only for BalBharati board 
-    for key in ['BalBharati']:#sorted(data['boards'].keys())[::-1]:     
+    for key in sorted(data['boards'].keys())[::-1]:     
         value = data['boards'][key]
         board = dict()
         board['id'] = key
@@ -204,7 +212,7 @@ def get_magogenie_info_url():
         board['children'] = []
         # To get standards in ascending order
         # we have use 6th std for testing purpose
-        for key1 in ['6','7','8']:#sorted(value['standards'].keys()):  
+        for key1 in sorted(value['standards'].keys()):  
             value1 = value['standards'][key1]
             print (key+" Standards - " + key1)
             standards = dict()
@@ -246,7 +254,6 @@ def get_magogenie_info_url():
                         except Exception as e:
                             print (e)
                         
-                        #print ("arrlevels",arrlevels)
                         # To convert multiple list into single list
                         newlist = list(itertools.chain(*arrlevels))  
                         # To sort data levelwise 
@@ -281,8 +288,8 @@ def get_magogenie_info_url():
     #     # Pickle is used to write list data into file
     #     pickle.dump(json.dumps(SAMPLE), f)  
     # print("Backup is written into backup.txt file")
-    print("Done ...")
-    #print ("SAMPLE:",SAMPLE)
+    print ("SAMPLE:",SAMPLE)
+    # sys.exit()
     return SAMPLE
 
 # Bulid magogenie_tree
@@ -307,12 +314,10 @@ def construct_channel(result=None):
     result_data = get_magogenie_info_url()
     channel = nodes.ChannelNode(
         source_domain="magogenie.com",
-        source_id="Magogenie CBSE channel fixes ",
-        title="Magogenie CBSE channel fixes ",
+        source_id="Magogenie Channel for nalanda/kolibri",
+        title="Magogenie Channel for nalanda/kolibri",
         thumbnail = "/Users/Admin/Documents/mago.png",
     )
-    print ("result_data:",result_data)
-    print ("Inside construct_channel")
     _build_tree(channel, result_data)
     raise_for_invalid_channel(channel)
     return channel
