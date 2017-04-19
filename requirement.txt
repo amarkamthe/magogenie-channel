@@ -1,1 +1,1 @@
-ricecooker==0.4.7
+ricecooker==0.5.4

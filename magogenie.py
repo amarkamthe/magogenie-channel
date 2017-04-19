@@ -115,18 +115,20 @@ def guess_content_kind(path=None, web_video_data=None, questions=None):
     else:
         return content_kinds.TOPIC
 
-
 ANSWER_TYPE = [
         'radio',
         'multiple_select'
     ]
+
+DESCRIPTION = "v0.1"
+
 # ANSWER_TYPE_KEY to define new types of questions
 ANSWER_TYPE_KEY = {
     'radio': ('correct_answer', exercises.SINGLE_SELECTION, 'all_answers'),
     'multiple_select': ('correct_answers', exercises.MULTIPLE_SELECTION, 'all_answers'),
     'number': ('answers', exercises.INPUT_QUESTION),
-    'text': ('answers'),
-    'subjective': ('answers', exercises.FREE_RESPONSE)
+    'text': ('answers')
+    # 'subjective': ('answers', exercises.FREE_RESPONSE)
 }
 # List of question units 
 arrlevels = []
@@ -148,8 +150,9 @@ def question_list(question_ids):
     levels = [] 
     for key4, value4 in question_info.items():
         question_data = {}
+        invalid_question_list = ['74400']
         # this statement checks the success of question
-        if question_info[str(key4)]['success']: # If question response is success then only it will execute following steps
+        if question_info[str(key4)]['success'] and str(value4['question']['id']) not in invalid_question_list: # If question response is success then only it will execute following steps
             # This checks answer_type of question is defined in ANSWER_TYPE_KEY
             if (value4['question']['answer_type'] != "text"):
                 if str(value4['question']['answer_type']) in ANSWER_TYPE_KEY:
@@ -179,16 +182,16 @@ def question_list(question_ids):
 
                     if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]):
                         correct_answer = correct_answer[0]
+                        question_data['hints'] = correct_answer[0]
 
                     if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]) or str(value4['question']['answer_type']) == str(ANSWER_TYPE[1]):
                         question_data[(ANSWER_TYPE_KEY[(value4['question']['answer_type'])][2])] = possible_answers
                     question_data[(ANSWER_TYPE_KEY[(value4['question']['answer_type'])][0])] = correct_answer
+                    question_data['hints'] = correct_answer
                     question_data["difficulty_level"] = value4['question']['difficulty_level']
                     levels.append(question_data)
         else:
             continue
-    #print ("levels:",levels)
-
     return levels
 
 def get_magogenie_info_url():
@@ -208,7 +211,7 @@ def get_magogenie_info_url():
         board = dict()
         board['id'] = key
         board['title'] = key
-        board['description'] = key
+        board['description'] = DESCRIPTION
         board['children'] = []
         # To get standards in ascending order
         # we have use 6th std for testing purpose
@@ -218,14 +221,14 @@ def get_magogenie_info_url():
             standards = dict()
             standards['id'] = key1
             standards['title'] = key1
-            standards['description'] = key1
+            standards['description'] = DESCRIPTION
             standards['children'] = []
             # To get subject under the standard
             for key2, value2 in value1['subjects'].items():
                 subjects = dict()
                 subjects['id'] = key2
                 subjects['title'] = key2
-                subjects['description'] = key2
+                subjects['description'] = DESCRIPTION
                 subjects['children'] = []
 
                 topics = []
@@ -237,7 +240,8 @@ def get_magogenie_info_url():
                         topic_data["ancestry"] = str(value3['ancestry'])
                     topic_data["id"] = str(value3['id'])
                     topic_data["title"] = value3['name']
-                    topic_data["license"] = licenses.CC_BY_NC_SA
+                    topic_data["description"] = DESCRIPTION
+                    topic_data["license"] = licenses.ALL_RIGHTS_RESERVED
                     topic_data["mastery_model"] = exercises.M_OF_N
                     topic_data["children"] = []
                     if value3['question_ids']:
@@ -265,10 +269,12 @@ def get_magogenie_info_url():
                         for i in arrlevels:
                             diff = i["difficulty_level"]
                             if i["difficulty_level"] not in levels:
-                                val = 'level' + str(i["difficulty_level"])
-                                levels[diff] = {'id': val, 'title': val, 'questions': [], 'mastery_model': exercises.M_OF_N, 'license': licenses.CC_BY_NC_SA}
+                                if str(i["difficulty_level"]) == "3":
+                                    val = "Challenge set"
+                                else:
+                                    val = 'level' + str(i["difficulty_level"])
+                                levels[diff] = {'id': val, 'title': val, 'questions': [], 'description':DESCRIPTION, 'mastery_model': exercises.M_OF_N, 'license': licenses.ALL_RIGHTS_RESERVED, 'domain_ns': 'GreyKite Technologies Pvt. Ltd.', 'Copyright Holder':'GreyKite Technologies Pvt. Ltd.'}
                             levels[diff]["questions"].append(i)
-
                         arrlevels = []
                         arrlevels.append(levels)
 
@@ -283,13 +289,6 @@ def get_magogenie_info_url():
             # Printing time and date of standard upload
             board['children'].append(standards)
         SAMPLE.append(board)
-    # # To write SAMPLE result into backup.txt file
-    # with open("backup.txt", 'wb') as f:  
-    #     # Pickle is used to write list data into file
-    #     pickle.dump(json.dumps(SAMPLE), f)  
-    # print("Backup is written into backup.txt file")
-    print ("SAMPLE:",SAMPLE)
-    # sys.exit()
     return SAMPLE
 
 # Bulid magogenie_tree
@@ -297,6 +296,15 @@ def build_magogenie_tree(topics):
     # To sort topics data id wise 
     tpo = sorted(topics, key=lambda k: k["id"])
     topics = tpo
+    count = 0
+    for topic in topics:
+        if topic['ancestry'] == None:
+            count+= 1
+            topic['title'] = str(str(count) + " " + topic['title'])
+        else:
+            for subtopic in topic['children']:
+                subtopic['title'] =  subtopic['title'] + ":" + topic['title']
+
     topic_dict = dict((str(topic['id']), topic) for topic in topics)
     for topic in topics:
         if topic['ancestry'] != None and str(topic['ancestry']) in topic_dict:
@@ -305,7 +313,6 @@ def build_magogenie_tree(topics):
             parent.setdefault('children', []).append(topic)
 
     result = [topic for topic in topics if topic['ancestry'] == None]
-
     return result
 
 # Constructing Magogenie Channelss
@@ -314,8 +321,8 @@ def construct_channel(result=None):
     result_data = get_magogenie_info_url()
     channel = nodes.ChannelNode(
         source_domain="magogenie.com",
-        source_id="Magogenie Channel for nalanda/kolibri",
-        title="Magogenie Channel for nalanda/kolibri",
+        source_id="temp channel to test issues",
+        title="temp channel to test issues",
         thumbnail = "/Users/Admin/Documents/mago.png",
     )
     _build_tree(channel, result_data)
@@ -353,7 +360,13 @@ def _build_tree(node, sourcetree):
                 license=child_source_node.get("license"),
                 author=child_source_node.get("author"),
                 description=child_source_node.get("description"),
-                exercise_data={}, # Just set to default
+                exercise_data={
+                    'mastery_model': exercises.M_OF_N,
+                    'randomize': True,
+                    'm': 4,
+                    'n': 5,
+                }, # Just set to default
+                copyright_holder='GreyKite Technologies Pvt. Ltd.',
                 thumbnail=child_source_node.get("thumbnail"),
             )
             add_files(child_node, child_source_node.get("files") or [])
