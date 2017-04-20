@@ -163,7 +163,10 @@ def question_list(question_ids):
                     question_data['question'] = re.sub(regex_base64, lambda m: "![]({})".format(m.group(0)), question_data['question'])
                     question_data['question'] = re.sub(regex_bmp, lambda m: "image/png".format(m.group(0)), question_data['question'])
                     question_data['question'] = re.sub(regex_gif, lambda m: "image/png".format(m.group(0)), question_data['question'])
-                    question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]            
+                    question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
+
+                    if len(str(value4['question']['unit'])) > 0 and value4['question']['unit'] is not None:
+                        question_data['question'] = question_data['question'] + "\n\n ____ " + str(value4['question']['unit'])
         
                     possible_answers = []
                     correct_answer = []
@@ -321,8 +324,8 @@ def construct_channel(result=None):
     result_data = get_magogenie_info_url()
     channel = nodes.ChannelNode(
         source_domain="magogenie.com",
-        source_id="temp channel to test issues",
-        title="temp channel to test issues",
+        source_id="Magogenie Channel with licence/copyright_holder changes",
+        title="Magogenie Channel with licence/copyright_holder changes",
         thumbnail = "/Users/Admin/Documents/mago.png",
     )
     _build_tree(channel, result_data)
