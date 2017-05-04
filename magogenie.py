@@ -146,7 +146,8 @@ IMG_ALT_REGEX = r'\salt\s*=\"([^"]+)\"'
 #regex_mathml = re.compile('\<math([^\)]+)\>')
 #regex_mathml = re.compile('\<math(.*?)</math>')
 mathml_re = re.compile(r"""(<math xmlns="http://www.w3.org/1998/Math/MathML">.*?</math>)""")
-regex = r"(^([A-Za-z]+))"
+#regex = r"(^([A-Za-z]+))"
+regex = r"(^\$\s[A-Za-z]+)"
 # This method takes question id and process it
 def question_list(question_ids):
     levels = {}
@@ -171,11 +172,6 @@ def question_list(question_ids):
                     
                     question_data['question'] = html2text.html2text(question_data['question'].replace("\/", "/").replace("\n", "").replace('&#10;', ''))
                     print ("html_to_text:", question_data['question'] )
-                    res = re.findall(regex, question_data['question'])
-                    print ("result:",res)
-                    if len(res) == 0:
-                        with open('questions.txt',"a") as f:
-                            f.write(question_data['id'] + ",")
                     question_data['question'] = question_data['question'].replace("http://www.magogenie.com", "").replace("../assets",'/assets').replace('../../assets','/assets') 
                     question_data['question'] = re.sub(regex_image, lambda m: url+"{}".format(m.group(0)) if url not in m.group(0) else "{}".format(m.group(0)), question_data['question'])
                     question_data['question'] = re.sub(regex_gif, lambda m: "image/png".format(m.group(0)), question_data['question']) 
@@ -192,11 +188,6 @@ def question_list(question_ids):
                         v  = v.replace("http://www.magogenie.com", "").replace("../assets",'/assets')
                         if len(re.findall(mathml_re, v)) > 0:
                             v  = re.sub(mathml_re, lambda x : mathml_to_latex(x, str(answer['id'])), v)
-                            res = re.findall(regex, str(v), re.MULTILINE)
-                            print ("result:", res)
-                            if len(res) == 0:
-                                with open('answers.txt',"a") as f:
-                                    f.write(str(answer['id']) + ",")
 
                         v = html2text.html2text(v.replace("\/", "/").replace("\n", "").replace('&#10;', ''))
                         v = re.sub(regex_image, lambda m: url+"{}".format(m.group(0)) if url not in m.group(0) else "{}".format(m.group(0)), v)
@@ -232,7 +223,7 @@ def get_magogenie_info_url():
     print ("Topic received")
     # To get boards in descending order used[::-1]
     # We have tesing here only for BalBharati board 
-    for key in ['BalBharati']:#sorted(data['boards'].keys())[::-1]:     
+    for key in ['CBSE']:#sorted(data['boards'].keys())[::-1]:     
         value = data['boards'][key]
         board = dict()
         board['id'] = key
@@ -241,7 +232,7 @@ def get_magogenie_info_url():
         board['children'] = []
         # To get standards in ascending order
         # we have use 6th std for testing purpose
-        for key1 in ['4']:#sorted(value['standards'].keys()):  
+        for key1 in ['3']:#sorted(value['standards'].keys()):  
             value1 = value['standards'][key1]
             print (key+" Standards - " + key1)
             standards = dict()
@@ -259,7 +250,7 @@ def get_magogenie_info_url():
 
                 topics = []
                 # To get topic names under subjects
-                for key3, value3 in value2['topics'].items():
+                for key3, value3 in value2['topics'].items():#['Fractions','Reading, writing, and drawing fractions','Fractions on the number line','Equivalent Fractions & Simplest Form','Proper, Improper, & Mixed Fractions']:
                     #value3 = value2['topics'][key3]
                     topic_data = dict()
                     topic_data["ancestry"] = None
@@ -298,9 +289,11 @@ def get_magogenie_info_url():
                             if i["difficulty_level"] not in levels:
                                 if str(i["difficulty_level"]) == "3":
                                     val = "Challenge Set"
+                                    source_id_unique = val + "_" + str(value3['id'])  # To handle the mismatch between same source id of different nodes   
                                 else:
                                     val = 'Level ' + str(i["difficulty_level"])
-                                levels[diff] = {'id': val, 'title': val, 'questions': [], 'description':DESCRIPTION, 'mastery_model': exercises.M_OF_N, 'license': licenses.ALL_RIGHTS_RESERVED, 'domain_ns': 'GreyKite Technologies Pvt. Ltd.', 'Copyright Holder':'GreyKite Technologies Pvt. Ltd.'}
+                                    source_id_unique = val + "_" + str(value3['id'])  
+                                levels[diff] = {'id': source_id_unique, 'title': val, 'questions': [], 'description':DESCRIPTION, 'mastery_model': exercises.M_OF_N, 'license': licenses.ALL_RIGHTS_RESERVED, 'domain_ns': 'GreyKite Technologies Pvt. Ltd.', 'Copyright Holder':'GreyKite Technologies Pvt. Ltd.'}
                             levels[diff]["questions"].append(i)
                         arrlevels = []
                         arrlevels.append(levels)
@@ -357,8 +350,8 @@ def construct_channel(result=None):
     print ("result_data:",json.dumps(result_data))
     channel = nodes.ChannelNode(
         source_domain="magogenie.com",
-        source_id="Magogenie channel for cbse 6 th std",
-        title="Magogenie channel for cbse 6 th std",
+        source_id="Magogenie CBSE 6",
+        title="Magogenie CBSE 6",
         thumbnail = "/Users/Admin/Documents/mago.png",
     )
     _build_tree(channel, result_data)
@@ -485,14 +478,22 @@ def create_question(raw_question):
 def mathml_to_latex(match, q_id):
     match = match.group().replace("&gt;",">")
     # match = match.replace('&#160;', ' ')
-    path = "/Users/Admin/Documents/magogenie-channel/q_files"
+    # path = "/Users/Admin/Documents/magogenie-channel/q_files"
+    path = "/Users/Admin/Documents/MG/magogenie-channel/q_files"
     print ("inside mathml_to_latex")
     filename = os.path.join(path, q_id+".mml")
     try:
         with open(filename,"w") as f:
             f.write(match)
         p = subprocess.Popen(["xsltproc", "mmltex.xsl", filename], stdout=subprocess.PIPE)
-        output, err = p.communicate()   
+        output, err = p.communicate() 
+        text = output.decode("utf-8")
+        res = re.findall(regex, text)
+        
+        if len(res) != 0:
+            with open('questions.txt',"a") as f:
+                f.write( q_id+ ",")
+ 
         return output.decode("utf-8")
     except Exception as e:
         print(e)
