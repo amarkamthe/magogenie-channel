@@ -16,7 +16,11 @@ import re
 import itertools
 import pickle
 from time import gmtime, strftime
-
+import operator
+from bs4 import BeautifulSoup
+import html2text
+import subprocess
+import time
 class FileTypes(Enum):
     """ Enum containing all file types Ricecooker can have
 
@@ -132,16 +136,19 @@ ANSWER_TYPE_KEY = {
 }
 # List of question units 
 arrlevels = []
-
+mathml_question_list = []
 regex_image = re.compile('(\/assets.+?.(jpeg|jpg|png|gif){1})|\/wirispluginengine([^\"]+)')
 # regex_base64 = re.compile('data:image\/[A-Za-z]*;base64,(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=|[&#A-Za-z0-9;+\/])*')
 regex_base64 = re.compile('data:image\/[A-Za-z]*;base64,(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)*')
 regex_bmp = re.compile('((image\/bmp))')
 regex_gif = re.compile('((image\/gif))')
-
+IMG_ALT_REGEX = r'\salt\s*=\"([^"]+)\"'
+#regex_mathml = re.compile('\<math([^\)]+)\>')
+#regex_mathml = re.compile('\<math(.*?)</math>')
+mathml_re = re.compile(r"""(<math xmlns="http://www.w3.org/1998/Math/MathML">.*?</math>)""")
+regex = r"(^([A-Za-z]+))"
 # This method takes question id and process it
 def question_list(question_ids):
-    global count
     levels = {}
     question_url = QUESTION_URL % (','.join(map(str, question_ids)))
     conn = urlopen(question_url)
@@ -150,19 +157,29 @@ def question_list(question_ids):
     levels = [] 
     for key4, value4 in question_info.items():
         question_data = {}
-        invalid_question_list = ['74400']
+        invalid_question_list = ['45117', '112070']
+        #and str(value4['question']['id']) not in invalid_question_list
         # this statement checks the success of question
         if question_info[str(key4)]['success'] and str(value4['question']['id']) not in invalid_question_list: # If question response is success then only it will execute following steps
             # This checks answer_type of question is defined in ANSWER_TYPE_KEY
             if (value4['question']['answer_type'] != "text"):
                 if str(value4['question']['answer_type']) in ANSWER_TYPE_KEY:
                     question_data['id'] = str(value4['question']['id'])
-                    question_data['question'] = value4['question']['content'].replace('&#10;', '')
-                    question_data['question'] = question_data['question'].replace('\n', '')
-                    question_data['question'] = re.sub(regex_image, lambda m: "![]("+url+"{})".format(m.group(0)) if url not in m.group(0) else "![]({})".format(m.group(0)),  question_data['question'])
-                    question_data['question'] = re.sub(regex_base64, lambda m: "![]({})".format(m.group(0)), question_data['question'])
+                    question_data['question'] = re.sub(IMG_ALT_REGEX, lambda m: "".format(m.group(0)), value4['question']['content'])
+                    if len(re.findall(mathml_re, question_data['question'])) > 0:
+                        question_data['question'] = re.sub(mathml_re, lambda x : mathml_to_latex(x, question_data['id']), question_data['question'])
+                    
+                    question_data['question'] = html2text.html2text(question_data['question'].replace("\/", "/").replace("\n", "").replace('&#10;', ''))
+                    print ("html_to_text:", question_data['question'] )
+                    res = re.findall(regex, question_data['question'])
+                    print ("result:",res)
+                    if len(res) == 0:
+                        with open('questions.txt',"a") as f:
+                            f.write(question_data['id'] + ",")
+                    question_data['question'] = question_data['question'].replace("http://www.magogenie.com", "").replace("../assets",'/assets').replace('../../assets','/assets') 
+                    question_data['question'] = re.sub(regex_image, lambda m: url+"{}".format(m.group(0)) if url not in m.group(0) else "{}".format(m.group(0)), question_data['question'])
+                    question_data['question'] = re.sub(regex_gif, lambda m: "image/png".format(m.group(0)), question_data['question']) 
                     question_data['question'] = re.sub(regex_bmp, lambda m: "image/png".format(m.group(0)), question_data['question'])
-                    question_data['question'] = re.sub(regex_gif, lambda m: "image/png".format(m.group(0)), question_data['question'])
                     question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
 
                     if len(str(value4['question']['unit'])) > 0 and value4['question']['unit'] is not None:
@@ -171,14 +188,20 @@ def question_list(question_ids):
                     possible_answers = []
                     correct_answer = []
                     for answer in value4['possible_answers']:
-                        v = answer['content'].replace('&#10;', '')  # to handle invalid base64 string
-                        v = v.replace('\n', '') # to handle invalid base64 string
-                        v = re.sub(regex_image, lambda m: "![]("+url+"{})".format(m.group(0)) if url not in m.group(0) else "![]({})".format(m.group(0)), v)
+                        v  = re.sub(IMG_ALT_REGEX, lambda m: "".format(m.group(0)), answer['content'])
+                        v  = v.replace("http://www.magogenie.com", "").replace("../assets",'/assets')
+                        if len(re.findall(mathml_re, v)) > 0:
+                            v  = re.sub(mathml_re, lambda x : mathml_to_latex(x, str(answer['id'])), v)
+                            res = re.findall(regex, str(v), re.MULTILINE)
+                            print ("result:", res)
+                            if len(res) == 0:
+                                with open('answers.txt',"a") as f:
+                                    f.write(str(answer['id']) + ",")
 
-                        v = re.sub(regex_base64, lambda m: "![]({})".format(m.group(0)), v)
+                        v = html2text.html2text(v.replace("\/", "/").replace("\n", "").replace('&#10;', ''))
+                        v = re.sub(regex_image, lambda m: url+"{}".format(m.group(0)) if url not in m.group(0) else "{}".format(m.group(0)), v)
                         v = re.sub(regex_bmp, lambda m: "image/png".format(m.group(0)), v) # converted bmp images to the png format as per ricecooker validation
                         v = re.sub(regex_gif, lambda m: "image/png".format(m.group(0)), v) # converted gif images to supported format of ricecooker
-                        
                         possible_answers.append(v)
                         if answer['is_correct']:
                             correct_answer.append(v)
@@ -209,7 +232,7 @@ def get_magogenie_info_url():
     print ("Topic received")
     # To get boards in descending order used[::-1]
     # We have tesing here only for BalBharati board 
-    for key in sorted(data['boards'].keys())[::-1]:     
+    for key in ['BalBharati']:#sorted(data['boards'].keys())[::-1]:     
         value = data['boards'][key]
         board = dict()
         board['id'] = key
@@ -218,7 +241,7 @@ def get_magogenie_info_url():
         board['children'] = []
         # To get standards in ascending order
         # we have use 6th std for testing purpose
-        for key1 in sorted(value['standards'].keys()):  
+        for key1 in ['4']:#sorted(value['standards'].keys()):  
             value1 = value['standards'][key1]
             print (key+" Standards - " + key1)
             standards = dict()
@@ -237,6 +260,7 @@ def get_magogenie_info_url():
                 topics = []
                 # To get topic names under subjects
                 for key3, value3 in value2['topics'].items():
+                    #value3 = value2['topics'][key3]
                     topic_data = dict()
                     topic_data["ancestry"] = None
                     if value3['ancestry']:
@@ -273,9 +297,9 @@ def get_magogenie_info_url():
                             diff = i["difficulty_level"]
                             if i["difficulty_level"] not in levels:
                                 if str(i["difficulty_level"]) == "3":
-                                    val = "Challenge set"
+                                    val = "Challenge Set"
                                 else:
-                                    val = 'level' + str(i["difficulty_level"])
+                                    val = 'Level ' + str(i["difficulty_level"])
                                 levels[diff] = {'id': val, 'title': val, 'questions': [], 'description':DESCRIPTION, 'mastery_model': exercises.M_OF_N, 'license': licenses.ALL_RIGHTS_RESERVED, 'domain_ns': 'GreyKite Technologies Pvt. Ltd.', 'Copyright Holder':'GreyKite Technologies Pvt. Ltd.'}
                             levels[diff]["questions"].append(i)
                         arrlevels = []
@@ -297,7 +321,8 @@ def get_magogenie_info_url():
 # Bulid magogenie_tree
 def build_magogenie_tree(topics):
     # To sort topics data id wise 
-    tpo = sorted(topics, key=lambda k: k["id"])
+    #tpo = sorted(topics, key=lambda k: k["id"])
+    tpo = sorted(topics, key=operator.itemgetter("id"))
     topics = tpo
     count = 0
     for topic in topics:
@@ -306,26 +331,34 @@ def build_magogenie_tree(topics):
             topic['title'] = str(str(count) + " " + topic['title'])
         else:
             for subtopic in topic['children']:
-                subtopic['title'] =  subtopic['title'] + ":" + topic['title']
+                subtopic['title'] =  subtopic['title'] + ": " + topic['title']
 
     topic_dict = dict((str(topic['id']), topic) for topic in topics)
     for topic in topics:
         if topic['ancestry'] != None and str(topic['ancestry']) in topic_dict:
+            # for subtopic in topic['children']:
+            #     subtopic['title'] =  subtopic['title'] + ": " + topic['title']
             parent = topic_dict[str(topic['ancestry'])]
             question_parent = topic_dict[str(topic['id'])]
             parent.setdefault('children', []).append(topic)
+        # else:
+        #     count+= 1
+        #     topic['title'] = str(str(count) + " " + topic['title'])
 
     result = [topic for topic in topics if topic['ancestry'] == None]
+    # print ("result:", json.dumps(result))
+    # sys.exit(0)
     return result
 
 # Constructing Magogenie Channelss
 def construct_channel(result=None):
 
     result_data = get_magogenie_info_url()
+    print ("result_data:",json.dumps(result_data))
     channel = nodes.ChannelNode(
         source_domain="magogenie.com",
-        source_id="Magogenie Channel with licence/copyright_holder changes",
-        title="Magogenie Channel with licence/copyright_holder changes",
+        source_id="Magogenie channel for cbse 6 th std",
+        title="Magogenie channel for cbse 6 th std",
         thumbnail = "/Users/Admin/Documents/mago.png",
     )
     _build_tree(channel, result_data)
@@ -448,3 +481,19 @@ def create_question(raw_question):
         )
     else:
         raise UnknownQuestionTypeError("Unrecognized question type '{0}': accepted types are {1}".format(raw_question["type"], [key for key, value in exercises.question_choices]))
+
+def mathml_to_latex(match, q_id):
+    match = match.group().replace("&gt;",">")
+    # match = match.replace('&#160;', ' ')
+    path = "/Users/Admin/Documents/magogenie-channel/q_files"
+    print ("inside mathml_to_latex")
+    filename = os.path.join(path, q_id+".mml")
+    try:
+        with open(filename,"w") as f:
+            f.write(match)
+        p = subprocess.Popen(["xsltproc", "mmltex.xsl", filename], stdout=subprocess.PIPE)
+        output, err = p.communicate()   
+        return output.decode("utf-8")
+    except Exception as e:
+        print(e)
+
