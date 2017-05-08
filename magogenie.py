@@ -160,7 +160,8 @@ def question_list(question_ids):
     levels = [] 
     for key4, value4 in question_info.items():
         question_data = {}
-        invalid_question_list = ['45117', '112070','123348', '123350' , '123356', '123352', '123353','123351','123354','123355','123349','123357','126660']
+        invalid_question_list = ['45117', '112070','123348', '123350' , '123356', '123352', '123353','123351','123354','123355','123349','123357','126660', '45117', '112070','51216','136815','136816','136819']
+
         #and str(value4['question']['id']) not in invalid_question_list
         # this statement checks the success of question
         if question_info[str(key4)]['success'] and str(value4['question']['id']) not in invalid_question_list: # If question response is success then only it will execute following steps
@@ -169,6 +170,8 @@ def question_list(question_ids):
                 if str(value4['question']['answer_type']) in ANSWER_TYPE_KEY:
                     question_data['id'] = str(value4['question']['id'])
                     question_data['question'] = re.sub(IMG_ALT_REGEX, lambda m: "".format(m.group(0)), value4['question']['content'])
+                    question_data['question'] = question_data['question']+"\n Question ID:: "+question_data['id']
+                    #print("Before png ::", question_data)
                     if len(re.findall(mathml_re, question_data['question'])) > 0:
                         question_data['question'] = re.sub(mathml_re, lambda x : mathml_to_latex(x, question_data['id']), question_data['question'])
 
@@ -177,9 +180,6 @@ def question_list(question_ids):
                     question_data['question'] = re.sub(regex_new, lambda m: (m.group(0) + '$')[1:] .format(m.group(0)), question_data['question'])
                     question_data['question'] = re.sub(regex_image, lambda m: url+"{}".format(m.group(0)) if url not in m.group(0) else "{}".format(m.group(0)), question_data['question'])
                     question_data['question'] = html2text.html2text(question_data['question'].replace("\/", "/").replace('&#10;', ''))
-                    
-                    #print ("html_to_text:", question_data['question'] )
-                    
                     question_data['question'] = re.sub(regex_gif, lambda m: "image/png".format(m.group(0)), question_data['question']) 
                     question_data['question'] = re.sub(regex_bmp, lambda m: "image/png".format(m.group(0)), question_data['question'])
                     question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
@@ -214,8 +214,6 @@ def question_list(question_ids):
                     question_data['hints'] = correct_answer
                     question_data["difficulty_level"] = value4['question']['difficulty_level']
                     levels.append(question_data)
-                    # print ("question_data:",question_data)
-                    # sys.exit(0)
         else:
             continue
     return levels
@@ -232,7 +230,7 @@ def get_magogenie_info_url():
     print ("Topic received")
     # To get boards in descending order used[::-1]
     # We have tesing here only for BalBharati board 
-    for key in ['CBSE']:#sorted(data['boards'].keys())[::-1]:     
+    for key in ["CBSE"]: #sorted(data['boards'].keys())[::-1]:     
         value = data['boards'][key]
         board = dict()
         board['id'] = key
@@ -486,9 +484,9 @@ def create_question(raw_question):
 
 def mathml_to_latex(match, q_id):
     match = match.group().replace("&gt;",">")
-    match = match.replace('&nbsp;', ' ')
-    path = "/Users/Admin/Documents/magogenie-channel/q_files"
-    #path = "/Users/Admin/Documents/MG/magogenie-channel/q_files"
+    match = match.replace('&nbsp;','')
+    # path = "/Users/Admin/Documents/magogenie-channel/q_files"
+    path = "/Users/Admin/Documents/MG/magogenie-channel/q_files"
     #print ("inside mathml_to_latex")
     filename = os.path.join(path, q_id+".mml")
     with open(filename,"w") as f:
