@@ -148,6 +148,8 @@ IMG_ALT_REGEX = r'\salt\s*=\"([^"]+)\"'
 mathml_re = re.compile(r"""(<math xmlns="http://www.w3.org/1998/Math/MathML">.*?</math>)""")
 #regex = r"(^([A-Za-z]+))"
 regex = r"(^\$\s[A-Za-z]+)"
+
+regex_new = r"(^\$\s[A-Za-z\s:|.]+)"
 # This method takes question id and process it
 def question_list(question_ids):
     levels = {}
@@ -158,7 +160,7 @@ def question_list(question_ids):
     levels = [] 
     for key4, value4 in question_info.items():
         question_data = {}
-        invalid_question_list = ['45117', '112070']
+        invalid_question_list = ['45117', '112070','123348', '123350' , '123356', '123352', '123353','123351','123354','123355','123349','123357','126660']
         #and str(value4['question']['id']) not in invalid_question_list
         # this statement checks the success of question
         if question_info[str(key4)]['success'] and str(value4['question']['id']) not in invalid_question_list: # If question response is success then only it will execute following steps
@@ -169,11 +171,15 @@ def question_list(question_ids):
                     question_data['question'] = re.sub(IMG_ALT_REGEX, lambda m: "".format(m.group(0)), value4['question']['content'])
                     if len(re.findall(mathml_re, question_data['question'])) > 0:
                         question_data['question'] = re.sub(mathml_re, lambda x : mathml_to_latex(x, question_data['id']), question_data['question'])
-                    
-                    question_data['question'] = html2text.html2text(question_data['question'].replace("\/", "/").replace("\n", "").replace('&#10;', ''))
-                    print ("html_to_text:", question_data['question'] )
-                    question_data['question'] = question_data['question'].replace("http://www.magogenie.com", "").replace("../assets",'/assets').replace('../../assets','/assets') 
+
+                    question_data['question'] = question_data['question'].replace('\n','')
+                    question_data['question'] = question_data['question'].replace('http://www.magogenie.com','').replace('../..','').replace("..",'')
+                    question_data['question'] = re.sub(regex_new, lambda m: (m.group(0) + '$')[1:] .format(m.group(0)), question_data['question'])
                     question_data['question'] = re.sub(regex_image, lambda m: url+"{}".format(m.group(0)) if url not in m.group(0) else "{}".format(m.group(0)), question_data['question'])
+                    question_data['question'] = html2text.html2text(question_data['question'].replace("\/", "/").replace('&#10;', ''))
+                    
+                    #print ("html_to_text:", question_data['question'] )
+                    
                     question_data['question'] = re.sub(regex_gif, lambda m: "image/png".format(m.group(0)), question_data['question']) 
                     question_data['question'] = re.sub(regex_bmp, lambda m: "image/png".format(m.group(0)), question_data['question'])
                     question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
@@ -185,12 +191,13 @@ def question_list(question_ids):
                     correct_answer = []
                     for answer in value4['possible_answers']:
                         v  = re.sub(IMG_ALT_REGEX, lambda m: "".format(m.group(0)), answer['content'])
-                        v  = v.replace("http://www.magogenie.com", "").replace("../assets",'/assets')
+                        v  = v.replace("http://www.magogenie.com", "").replace('../..','').replace("..",'')
                         if len(re.findall(mathml_re, v)) > 0:
                             v  = re.sub(mathml_re, lambda x : mathml_to_latex(x, str(answer['id'])), v)
 
-                        v = html2text.html2text(v.replace("\/", "/").replace("\n", "").replace('&#10;', ''))
                         v = re.sub(regex_image, lambda m: url+"{}".format(m.group(0)) if url not in m.group(0) else "{}".format(m.group(0)), v)
+                        v = html2text.html2text(v.replace("\/", "/").replace("\n", "").replace('&#10;', ''))   
+                        v = v.replace('\n','')
                         v = re.sub(regex_bmp, lambda m: "image/png".format(m.group(0)), v) # converted bmp images to the png format as per ricecooker validation
                         v = re.sub(regex_gif, lambda m: "image/png".format(m.group(0)), v) # converted gif images to supported format of ricecooker
                         possible_answers.append(v)
@@ -207,6 +214,8 @@ def question_list(question_ids):
                     question_data['hints'] = correct_answer
                     question_data["difficulty_level"] = value4['question']['difficulty_level']
                     levels.append(question_data)
+                    # print ("question_data:",question_data)
+                    # sys.exit(0)
         else:
             continue
     return levels
@@ -232,7 +241,7 @@ def get_magogenie_info_url():
         board['children'] = []
         # To get standards in ascending order
         # we have use 6th std for testing purpose
-        for key1 in ['3']:#sorted(value['standards'].keys()):  
+        for key1 in ['6']:#sorted(value['standards'].keys()):  
             value1 = value['standards'][key1]
             print (key+" Standards - " + key1)
             standards = dict()
@@ -347,11 +356,11 @@ def build_magogenie_tree(topics):
 def construct_channel(result=None):
 
     result_data = get_magogenie_info_url()
-    print ("result_data:",json.dumps(result_data))
+    #print ("result_data:",json.dumps(result_data))
     channel = nodes.ChannelNode(
         source_domain="magogenie.com",
-        source_id="Magogenie CBSE 6",
-        title="Magogenie CBSE 6",
+        source_id="Magogenie CBSE 6th std mathmml fixes ",
+        title="Magogenie CBSE 6th std mathmml fixes",
         thumbnail = "/Users/Admin/Documents/mago.png",
     )
     _build_tree(channel, result_data)
@@ -477,24 +486,24 @@ def create_question(raw_question):
 
 def mathml_to_latex(match, q_id):
     match = match.group().replace("&gt;",">")
-    # match = match.replace('&#160;', ' ')
-    # path = "/Users/Admin/Documents/magogenie-channel/q_files"
-    path = "/Users/Admin/Documents/MG/magogenie-channel/q_files"
-    print ("inside mathml_to_latex")
+    match = match.replace('&nbsp;', ' ')
+    path = "/Users/Admin/Documents/magogenie-channel/q_files"
+    #path = "/Users/Admin/Documents/MG/magogenie-channel/q_files"
+    #print ("inside mathml_to_latex")
     filename = os.path.join(path, q_id+".mml")
+    with open(filename,"w") as f:
+        f.write(match)
     try:
-        with open(filename,"w") as f:
-            f.write(match)
         p = subprocess.Popen(["xsltproc", "mmltex.xsl", filename], stdout=subprocess.PIPE)
         output, err = p.communicate() 
         text = output.decode("utf-8")
         res = re.findall(regex, text)
-        
+
         if len(res) != 0:
             with open('questions.txt',"a") as f:
                 f.write( q_id+ ",")
  
         return output.decode("utf-8")
     except Exception as e:
-        print(e)
+        raise(e)
 
