@@ -160,7 +160,7 @@ def question_list(question_ids):
     levels = [] 
     for key4, value4 in question_info.items():
         question_data = {}
-        invalid_question_list = ['45117', '112070','123348', '123350' , '123356', '123352', '123353','123351','123354','123355','123349','123357','126660', '45117', '112070','51216','136815','136816','136819']
+        invalid_question_list = ['112070','123348', '123350' , '123356', '123352', '123353','123351','123354','123355','123349','123357','126660', '45117', '112070','51216','136815','136816','136819']
 
         #and str(value4['question']['id']) not in invalid_question_list
         # this statement checks the success of question
@@ -239,7 +239,7 @@ def get_magogenie_info_url():
         board['children'] = []
         # To get standards in ascending order
         # we have use 6th std for testing purpose
-        for key1 in ['3']:#sorted(value['standards'].keys()):  
+        for key1 in sorted(value['standards'].keys()):  
             value1 = value['standards'][key1]
             print (key+" Standards - " + key1)
             standards = dict()
@@ -257,8 +257,8 @@ def get_magogenie_info_url():
 
                 topics = []
                 # To get topic names under subjects
-                for key3 in ['Introduction to Geometrical Figures','Edges and Corners', 'Warm Up (Introduction to Geometrical Figures)']:
-                    value3 = value2['topics'][key3]
+                for key3,value3 in value2['topics'].items(): #['Introduction to Geometrical Figures','Edges and Corners', 'Warm Up (Introduction to Geometrical Figures)']:
+                    # value3 = value2['topics'][key3]
                     topic_data = dict()
                     topic_data["ancestry"] = None
                     if value3['ancestry']:
@@ -357,8 +357,8 @@ def construct_channel(result=None):
     #print ("result_data:",json.dumps(result_data))
     channel = nodes.ChannelNode(
         source_domain="magogenie.com",
-        source_id="Magogenie CBSE 6th std mathmml fixes ",
-        title="Magogenie CBSE 6th std mathmml fixes",
+        source_id="Magogenie BalBharati html and mathml changes",
+        title="Magogenie BalBharati html and mathml changes",
         thumbnail = "/Users/Admin/Documents/mago.png",
     )
     _build_tree(channel, result_data)
