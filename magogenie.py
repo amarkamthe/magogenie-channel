@@ -175,7 +175,7 @@ def question_list(question_ids):
                     if len(re.findall(mathml_re, question_data['question'])) > 0:
                         question_data['question'] = re.sub(mathml_re, lambda x : mathml_to_latex(x, question_data['id']), question_data['question'])
 
-                    question_data['question'] = question_data['question'].replace('\n','')
+                    question_data['question'] = question_data['question'].replace('\n','').replace('\r','')
                     question_data['question'] = question_data['question'].replace('http://www.magogenie.com','').replace('../..','').replace("..",'')
                     question_data['question'] = re.sub(regex_new, lambda m: (m.group(0) + '$')[1:] .format(m.group(0)), question_data['question'])
                     question_data['question'] = re.sub(regex_image, lambda m: url+"{}".format(m.group(0)) if url not in m.group(0) else "{}".format(m.group(0)), question_data['question'])
@@ -185,7 +185,7 @@ def question_list(question_ids):
                     question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
 
                     if len(str(value4['question']['unit'])) > 0 and value4['question']['unit'] is not None:
-                        question_data['question'] = question_data['question'] + "\n\n ____ " + str(value4['question']['unit'])
+                        question_data['question'] = question_data['question'] + "\n\n ______ " + str(value4['question']['unit'])
         
                     possible_answers = []
                     correct_answer = []
@@ -230,7 +230,7 @@ def get_magogenie_info_url():
     print ("Topic received")
     # To get boards in descending order used[::-1]
     # We have tesing here only for BalBharati board 
-    for key in ["CBSE"]: #sorted(data['boards'].keys())[::-1]:     
+    for key in ["BalBharati"]: #sorted(data['boards'].keys())[::-1]:     
         value = data['boards'][key]
         board = dict()
         board['id'] = key
@@ -239,7 +239,7 @@ def get_magogenie_info_url():
         board['children'] = []
         # To get standards in ascending order
         # we have use 6th std for testing purpose
-        for key1 in ['6']:#sorted(value['standards'].keys()):  
+        for key1 in ['3']:#sorted(value['standards'].keys()):  
             value1 = value['standards'][key1]
             print (key+" Standards - " + key1)
             standards = dict()
@@ -257,8 +257,8 @@ def get_magogenie_info_url():
 
                 topics = []
                 # To get topic names under subjects
-                for key3, value3 in value2['topics'].items():#['Fractions','Reading, writing, and drawing fractions','Fractions on the number line','Equivalent Fractions & Simplest Form','Proper, Improper, & Mixed Fractions']:
-                    #value3 = value2['topics'][key3]
+                for key3 in ['Introduction to Geometrical Figures','Edges and Corners', 'Warm Up (Introduction to Geometrical Figures)']:
+                    value3 = value2['topics'][key3]
                     topic_data = dict()
                     topic_data["ancestry"] = None
                     if value3['ancestry']:
@@ -451,6 +451,7 @@ def create_question(raw_question):
             correct_answers=raw_question["correct_answers"],
             all_answers=raw_question["all_answers"],
             hints=raw_question.get("hints"),
+            randomize = True,
         )
     if raw_question["type"] == exercises.SINGLE_SELECTION:
         return questions.SingleSelectQuestion(
@@ -459,6 +460,7 @@ def create_question(raw_question):
             correct_answer=raw_question["correct_answer"],
             all_answers=raw_question["all_answers"],
             hints=raw_question.get("hints"),
+            randomize = True
         )
     if raw_question["type"] == exercises.INPUT_QUESTION:
         return questions.InputQuestion(
@@ -485,8 +487,8 @@ def create_question(raw_question):
 def mathml_to_latex(match, q_id):
     match = match.group().replace("&gt;",">")
     match = match.replace('&nbsp;','')
-    # path = "/Users/Admin/Documents/magogenie-channel/q_files"
-    path = "/Users/Admin/Documents/MG/magogenie-channel/q_files"
+    path = "/Users/Admin/Documents/magogenie-channel/q_files"
+    #path = "/Users/Admin/Documents/MG/magogenie-channel/q_files"
     #print ("inside mathml_to_latex")
     filename = os.path.join(path, q_id+".mml")
     with open(filename,"w") as f:
