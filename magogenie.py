@@ -21,6 +21,8 @@ from bs4 import BeautifulSoup
 import html2text
 import subprocess
 import time
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 class FileTypes(Enum):
     """ Enum containing all file types Ricecooker can have
 
@@ -142,14 +144,34 @@ regex_image = re.compile('(\/assets.+?.(jpeg|jpg|png|gif){1})|\/wirispluginengin
 regex_base64 = re.compile('data:image\/[A-Za-z]*;base64,(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)*')
 regex_bmp = re.compile('((image\/bmp))')
 regex_gif = re.compile('((image\/gif))')
-IMG_ALT_REGEX = r'\salt\s*=\"([^"]+)\"'
-#regex_mathml = re.compile('\<math([^\)]+)\>')
-#regex_mathml = re.compile('\<math(.*?)</math>')
-mathml_re = re.compile(r"""(<math xmlns="http://www.w3.org/1998/Math/MathML">.*?</math>)""")
-#regex = r"(^([A-Za-z]+))"
-regex = r"(^\$\s[A-Za-z]+)"
+IMG_ALT_REGEX = r'\salt\s*=\"([^"]+)\"' # used to remove alt tag from questions
+mathml_re = re.compile(r"""(<math xmlns="http://www.w3.org/1998/Math/MathML">.*?</math>)""") # used to detect mathml in question
+regex = r"(^\$\s[A-Za-z]+)" # used ti identify the valid mathml or not
 
-regex_new = r"(^\$\s[A-Za-z\s:|.]+)"
+regex_parse_invalid_mathml_questions = r"([\\_.]+\$)"
+#regex_parse_invalid_mathml_questions = r"([a-zA-Z(\s)]+.[\\_.]+.\$)"  # used to handle e.g $ 5 \times 6 equals \_\_\_\_\_$
+# regex_find_non_mathml_string = re.compile('(\$[(a-zA-z0-9)(\s.,?=÷+)]+\$)')
+regex_find_non_mathml_string = r"(\$.[a-zA-Z0-9\s+,.=?_\\-]+\$)" # used to handle e.g $ Add .236+451+103 $
+regex_parse_phantom = r"(\\phantom{\\[a-zA-Z]+{[a-zA-Z0-9]+}{[a-zA-Z0-9]+}})" # used to remove unnecessry conversion of mathml
+regex_parse_invalid_mathml = r"(^\$\s[A-Za-z\s:|.|?|,]+)" # used to hndle the nonmathl (replace starting '$' before any word and replace it before mathml equation)
+
+regex1 = r"(}[a-zA-Z0-9=+,\s.\\_  ?]+\$)"
+#regex2 = r"(\$.[a-zA-Z0-9+=,?:. ÷_]+.(\\o|\\t|\\f))"
+regex2 = re.compile('(\$.[a-zA-Z0-9+=,?:. ÷_ ]+.(\\o|\\t|\\f))')
+# regex3 = r"(\}.[a-zA-Z0-9+=,?:. ]+.(\\m|\\t|\\f))"
+regex3 = re.compile('(\}.[a-zA-Z0-9+=_,?:.  ]+.(    \\t|\\f))')
+
+regex4 =r"[0-9]\s[\\_.]+\$|[_]+\s\S"
+
+regex5 = r"\$.*?\$"
+
+convert_invalid_mathml_html2_text = [99842, 99843, 99844, 99845, 99846, 99849, 47036, 47037, 47038, 47039, 47053, 47052, 47054, 119868, 119865, 119866, 119867, 120078, 102483, 123708, 123709, 47040, 47055, 47056 ,138226,138225,138230,\
+                    138229,138228,138227, 128232, 138231, 138233, 128164, 126147, 126172, 128146, 105158, 105141, 105180, 105166, \
+                    118336, 118337, 118338, \
+                    124250, 124249,124251, 124246, 124231, 124244, 124247, 124229, 124248, 124228, 124245, 124230, 124633,\
+                    124636, 124631, 124627, 124629, 102914, 102997, 103108, 102994, 103019, 104668, 103550, 103602, 103618, \
+                    142199, 103022,124913, 103289, 103291, 106911, 103501, 105177, 105043, 105162, 105181, 105215, 105041, 105210, 105045,\
+                    105220, 105217, 98592, 98707, 98709, 98713, 98724, 98721, 105110, 98619, 105189, 105192, 98033, 115390, 109463, 109462]
 # This method takes question id and process it
 def question_list(question_ids):
     levels = {}
@@ -160,7 +182,7 @@ def question_list(question_ids):
     levels = [] 
     for key4, value4 in question_info.items():
         question_data = {}
-        invalid_question_list = ['112070','123348', '123350' , '123356', '123352', '123353','123351','123354','123355','123349','123357','126660', '45117', '112070','51216','136815','136816','136819']
+        invalid_question_list = ['123348', '123350' , '123356', '123352', '123353','123351','123354','123355','123349','123357','126660', '45117', '112070','51216','136815','136816','136819']
 
         #and str(value4['question']['id']) not in invalid_question_list
         # this statement checks the success of question
@@ -172,20 +194,129 @@ def question_list(question_ids):
                     question_data['question'] = re.sub(IMG_ALT_REGEX, lambda m: "".format(m.group(0)), value4['question']['content'])
                     question_data['question'] = question_data['question']+"\n Question ID:: "+question_data['id']
                     #print("Before png ::", question_data)
-                    if len(re.findall(mathml_re, question_data['question'])) > 0:
-                        question_data['question'] = re.sub(mathml_re, lambda x : mathml_to_latex(x, question_data['id']), question_data['question'])
+                    if int(question_data['id']) in convert_invalid_mathml_html2_text:
+                        question_data['question'] = html2text.html2text(question_data['question'])
+                        print ("question-0:",question_data['question']+"\n\n")
 
-                    question_data['question'] = question_data['question'].replace('\n','').replace('\r','')
-                    question_data['question'] = question_data['question'].replace('http://www.magogenie.com','').replace('../..','').replace("..",'')
-                    question_data['question'] = re.sub(regex_new, lambda m: (m.group(0) + '$')[1:] .format(m.group(0)), question_data['question'])
-                    question_data['question'] = re.sub(regex_image, lambda m: url+"{}".format(m.group(0)) if url not in m.group(0) else "{}".format(m.group(0)), question_data['question'])
-                    question_data['question'] = html2text.html2text(question_data['question'].replace("\/", "/").replace('&#10;', ''))
+                    elif len(re.findall(mathml_re, question_data['question'])) > 0:
+                        question_data['question'] = re.sub(mathml_re, lambda x : mathml_to_latex(x, question_data['id']), question_data['question'])
+                        question_data['question'] = re.sub(regex_parse_phantom, lambda m:" ".format(m.group(0)), question_data['question'])
+                        question_data['question'] = re.sub(r"\\overline{\)\s*}", lambda m:"\_\_\_\_\_\_".format(m.group(0)), question_data['question'])
+                        question_data['question'] = question_data['question'].replace('\_','_')
+
+                        res1 = re.search(regex1, question_data['question'])
+                        print ("Main Question-1:",question_data['question'] + "\n\n")
+                        success1 = None
+                        if res1 is not None:
+                            print ("First Result:",res1.group(0))
+                            first_char = res1.group()[:1]
+                            last_char = res1.group()[-1:]
+                            original_question = res1.group()[1:]
+                            match_data = first_char + last_char + original_question[:-1]
+                            text_data = question_data['question'].split(str(res1.group()))
+                            question_data['question'] = text_data[0] + match_data + text_data[1] 
+                            print ("question-1:", question_data['question']+"\n\n")
+                            success1 = 1
+
+                        res2 = re.search(r"(\$.[a-zA-Z0-9+=,?:. ÷_ ]+.(\\o|\\t|\\f|\\s))", question_data['question'])
+                        print ("RES2:", res2)
+                        
+                        print ("Main Question-2:", question_data['question'] + "\n\n")
+
+                        success2 = None
+                        if res2 is not None:
+                            print ("Second Result:",res2.group(0))
+                            valid_res = str(res2.group())[:-2].strip()
+                            print ("valid result:",valid_res)
+
+                            first_char = res2.group()[:1]
+                            # print ("first_char:",first_char)
+                            last_char = res2.group()[-2:]
+                            # print ("last_char:",last_char)
+                            original_question = res2.group()[1:]
+                            match_data = original_question[:-2]
+                            match_data= " ".join(match_data.split()) 
+                            res2_1 = re.search(r"[0-9,=+ ]+$", match_data.strip())
+                            print ("match_data:", match_data)
+                            if res2_1 is not None:
+                                print("MATCHING RESULT:",res2_1.group(0))
+                                valid_mathml_data_result = match_data.split(res2_1.group(0))
+                                match_data = valid_mathml_data_result[0] +' $' + res2_1.group(0) + valid_mathml_data_result[1]
+                                print ("valid_mathml_data_result:",match_data)
+                            else:
+                                match_data += first_char
+                            match_data += last_char
+                            text_data = question_data['question'].split(str(res2.group()))
+                            question_data['question'] = text_data[0] + match_data + text_data[1]
+
+                            print ("question-2:",question_data['question']+"\n\n")
+                            success2 = 1
+
+                        res3 = re.search(r"(\}.[a-zA-Z0-9+=-_,?:.  ]+.(\\t|\\f))", question_data['question'])
+                        print ("Main Question-3:",question_data['question'] + "\n\n")
+                        success3 = None
+                        if res3 is not None:
+                            print ("Third Result:",res3.group(0))
+                            first_char = res3.group()[:1]
+                            last_char = res3.group()[-2:]
+                            original_question = res3.group()[1:]
+                            match_data = first_char + '$' + original_question[:-2]+ '$' + last_char 
+                            text_data = question_data['question'].split(str(res3.group()))                           
+                            question_data['question'] = text_data[0] +match_data+ text_data[1]
+                            print ("question-3:",question_data['question']+"\n\n")
+                            success3 = 1
+
+                        # question_data['question'] = re.sub(regex_parse_invalid_mathml, lambda m: (m.group(0) + ' $')[1:] .format(m.group(0)), question_data['question'])
+                        # print ("question-1:",question_data['question']+"\n\n")
+                        
+                        # question_data['question'] = re.sub(regex_parse_invalid_mathml_questions, lambda m:(' $' + m.group(0))[:-1].format(m.group(0)),question_data['question'])
+                        print ("question-4:",question_data['question']+"\n\n")
+                        print (str(success1)+""+ str(success2)+""+ str(success3))
+                        if success1 == None and success2 == None and success3 == None and 'mathrm' not in question_data['question'] and '\\frac' not in question_data['question']: 
+                            #question_data['question'] = re.sub(regex_find_non_mathml_string, lambda m:m.group(0).replace('$','').format(m.group(0)),question_data['question'])
+                            question_data['question'] = question_data['question'].replace('$','')
+                            question_data['question'] = question_data['question'].replace('\\times','$\\times$').replace('\\square','$\\square$')
+                            print ("question-5:",question_data['question']+"\n\n")
+                        else:
+                            print ("inside else statement")
+                            res5 = re.search(r"\$.*?\$", question_data['question'])
+                            print ("Result- 5:",res5)
+                            if res5 is not None:
+                                matched_data = question_data['question'].split(res5.group())
+
+                                if matched_data:
+                                    matched_data[0] = matched_data[0].replace('\\times','$\\times$').replace('\\square','$\\square$')
+                                    matched_data[1] = matched_data[1].replace('\\times','$\\times$').replace('\\square','$\\square$')
+                                    question_data['question'] = matched_data[0]  + res5.group() +  matched_data[1] 
+                        print ("question-6:",question_data['question']+"\n\n")
+                        question_data['question'] = re.sub(r"___", lambda m: ("\_\_\_") .format(m.group(0)), question_data['question'])
+                        question_data['question'] = question_data['question'].replace('\\___$','\\_$')
+                        print ("question-7:",question_data['question']+"\n\n")
+                        question_data['question'] = question_data['question'].replace('\\__','\\_')
+                        question_data['question'] = " ".join(question_data['question'].split())
+                        # if "\\times" in str(question_data['question']):
+                        #     question_data['question'] = re.sub(regex4, lambda m:(' $ ' + m.group(0))[:-1].format(m.group(0)),question_data['question'])
+                        #     print ("question-6:",question_data['question']+"\n\n")
+                        # if "\square" in str(question_data['question']):
+                        #     question_data['question'] = re.sub(regex4, lambda m:(' $ ' + m.group(0))[:-1].format(m.group(0)),question_data['question'])
+                        # if 'so'in str(question_data['question']):
+                        #     question_data['question'] = question_data['question'].replace('so','$ so $')
+                        question_data['question'] = question_data['question'].replace('<br>','\n')
+                        print ("question-8:",question_data['question']+"\n\n")
+
+                    else:
+                        question_data['question'] = question_data['question'].replace('\n','').replace('\r','')
+                        question_data['question'] = question_data['question'].replace('http://www.magogenie.com','').replace('../..','').replace("..",'')
+                        question_data['question'] = re.sub(regex_image, lambda m: url+"{}".format(m.group(0)) if url not in m.group(0) else "{}".format(m.group(0)), question_data['question'])
+                        question_data['question'] = html2text.html2text(question_data['question'].replace("\/", "/").replace('&#10;', ''))
+                        question_data['question'] = re.sub(r"___", lambda m: ("\_\_\_") .format(m.group(0)), question_data['question'])
+
                     question_data['question'] = re.sub(regex_gif, lambda m: "image/png".format(m.group(0)), question_data['question']) 
                     question_data['question'] = re.sub(regex_bmp, lambda m: "image/png".format(m.group(0)), question_data['question'])
                     question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
 
                     if len(str(value4['question']['unit'])) > 0 and value4['question']['unit'] is not None:
-                        question_data['question'] = question_data['question'] + "\n\n ______ " + str(value4['question']['unit'])
+                        question_data['question'] = question_data['question'] + "\n\n \_\_\_\_\_\_ " + str(value4['question']['unit'])
         
                     possible_answers = []
                     correct_answer = []
@@ -195,15 +326,18 @@ def question_list(question_ids):
                         if len(re.findall(mathml_re, v)) > 0:
                             v  = re.sub(mathml_re, lambda x : mathml_to_latex(x, str(answer['id'])), v)
 
+                        v = re.sub(regex_parse_invalid_mathml, lambda m: (m.group(0) + ' $')[1:] .format(m.group(0)), v)
+                        # v= v.replace('\overline{) }','')
+                        v = re.sub(r"\\overline{\)\s}", lambda m:"".format(m.group(0)), v)
                         v = re.sub(regex_image, lambda m: url+"{}".format(m.group(0)) if url not in m.group(0) else "{}".format(m.group(0)), v)
-                        v = html2text.html2text(v.replace("\/", "/").replace("\n", "").replace('&#10;', ''))   
-                        v = v.replace('\n','')
+                        v = html2text.html2text(v.replace("\/", "/").replace('&#10;', ''))   
+                        # v = v.strip()
                         v = re.sub(regex_bmp, lambda m: "image/png".format(m.group(0)), v) # converted bmp images to the png format as per ricecooker validation
                         v = re.sub(regex_gif, lambda m: "image/png".format(m.group(0)), v) # converted gif images to supported format of ricecooker
                         possible_answers.append(v)
                         if answer['is_correct']:
                             correct_answer.append(v)
-
+                    # print ("possible_answers:",possible_answers)
                     if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]):
                         correct_answer = correct_answer[0]
                         question_data['hints'] = correct_answer[0]
@@ -220,6 +354,7 @@ def question_list(question_ids):
 
 def get_magogenie_info_url():
     SAMPLE = []
+    data = {}
     try:
         conn = urlopen(TREE_URL,timeout=30)
         data = json.loads(conn.read().decode('utf-8'))
@@ -239,7 +374,7 @@ def get_magogenie_info_url():
         board['children'] = []
         # To get standards in ascending order
         # we have use 6th std for testing purpose
-        for key1 in sorted(value['standards'].keys()):  
+        for key1 in ['5','6']:#sorted(value['standards'].keys()):  
             value1 = value['standards'][key1]
             print (key+" Standards - " + key1)
             standards = dict()
@@ -257,8 +392,8 @@ def get_magogenie_info_url():
 
                 topics = []
                 # To get topic names under subjects
-                for key3,value3 in value2['topics'].items(): #['Introduction to Geometrical Figures','Edges and Corners', 'Warm Up (Introduction to Geometrical Figures)']:
-                    # value3 = value2['topics'][key3]
+                for key3, value3 in value2['topics'].items():#["Fractions",'Creating and identifying equivalent fractions','Converting unlike fractions into like fractions','Comparing fractions with the same numerator or denominator','Comparing unlike fractions','Addition of like fractions','Subtraction of like fractions','Addition and subtraction of unlike fractions','Fractions of collections and mixed fractions']: #value3 in value2['topics'].items():
+                    #value3 = value2['topics'][key3]
                     topic_data = dict()
                     topic_data["ancestry"] = None
                     if value3['ancestry']:
@@ -357,8 +492,8 @@ def construct_channel(result=None):
     #print ("result_data:",json.dumps(result_data))
     channel = nodes.ChannelNode(
         source_domain="magogenie.com",
-        source_id="Magogenie BalBharati html and mathml changes",
-        title="Magogenie BalBharati html and mathml changes",
+        source_id="Magogenie BalBharati 5 and 6 std REGEX fixes",
+        title="Magogenie BalBharati 5 and 6 std REGEX fixes",
         thumbnail = "/Users/Admin/Documents/mago.png",
     )
     _build_tree(channel, result_data)
@@ -390,21 +525,30 @@ def _build_tree(node, sourcetree):
             _build_tree(child_node, source_tree_children)
 
         elif kind == content_kinds.EXERCISE:
+            # node_data = json.dumps(child_source_node)
+            if int(len(child_source_node['questions'])) < 5:
+                exercise_data = {
+                    'mastery_model': exercises.DO_ALL,
+                    'randomize': True,
+                }
+            else:
+                exercise_data={
+                    'mastery_model': exercises.M_OF_N,
+                    'randomize': True,
+                    'm': 4,
+                    'n': 5,
+                }
             child_node = nodes.ExerciseNode(
                 source_id=child_source_node["id"],
                 title=child_source_node["title"],
                 license=child_source_node.get("license"),
                 author=child_source_node.get("author"),
                 description=child_source_node.get("description"),
-                exercise_data={
-                    'mastery_model': exercises.M_OF_N,
-                    'randomize': True,
-                    'm': 4,
-                    'n': 5,
-                }, # Just set to default
+                exercise_data=exercise_data,
                 copyright_holder='GreyKite Technologies Pvt. Ltd.',
                 thumbnail=child_source_node.get("thumbnail"),
             )
+    
             add_files(child_node, child_source_node.get("files") or [])
             for q in child_source_node.get("questions"):
                 question = create_question(q)
