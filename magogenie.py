@@ -1,8 +1,4 @@
 
-import time
-import sys
-import json
-import os
 from enum import Enum
 from ricecooker.classes import nodes, questions, files
 from ricecooker.classes.licenses import get_license
@@ -12,12 +8,12 @@ from pressurecooker.encodings import get_base64_encoding
 from urllib.request import urlopen, HTTPError
 from multiprocessing import Pool
 from settings import *
+import sys
+import json
+import os
 import re
 import itertools
-import pickle
-from time import gmtime, strftime
 import operator
-from bs4 import BeautifulSoup
 import html2text
 import subprocess
 import time
@@ -107,7 +103,7 @@ ANSWER_TYPE_KEY = {
     'radio': ('correct_answer', exercises.SINGLE_SELECTION, 'all_answers'),
     'multiple_select': ('correct_answers', exercises.MULTIPLE_SELECTION, 'all_answers'),
     'number': ('answers', exercises.INPUT_QUESTION),
-    'text': ('answers')
+    #'text': ('answers')
 }
 
 # List of question units 
@@ -120,9 +116,9 @@ REGEX_GIF = re.compile('((image\/gif))')
 IMG_ALT_REGEX = r'\salt\s*=\"([^"]+)\"' # used to remove alt tag from questions
 MATHML_REGEX = re.compile(r"""(<math xmlns="http://www.w3.org/1998/Math/MathML">.*?</math>)""") # used to detect mathml in question
 REGEX_PHANTOM = r"(\\phantom{\\[a-zA-Z]+{[a-zA-Z0-9]+}{[a-zA-Z0-9]+}})" # used to remove unnecessry conversion of mathml
-REGEX_INVALID_MATHML = r"(^\$\s[A-Za-z\s:|.|?|,]+)" # used to hndle the nonmathl (replace starting '$' before any word and replace it before mathml equation)
 
-
+invalid_question_list = ['113178','119500','123348', '123350' , '123356', '123352', '123353','123351','123354','123355','123349','123357', \
+                                 '126660', '45117', '112070','51216','136815','136816','136819']
 
 # This method takes question id and process it
 def question_list(question_ids):
@@ -134,71 +130,34 @@ def question_list(question_ids):
     levels = [] 
     for key4, value4 in question_info.items():
         question_data = {}
-        invalid_question_list = ['113178','119500','123348', '123350' , '123356', '123352', '123353','123351','123354','123355','123349','123357', \
-                                 '126660', '45117', '112070','51216','136815','136816','136819']
         # this statement checks the success of question
-        if question_info[str(key4)]['success'] and str(value4['question']['id']) not in invalid_question_list: # If question response is success then only it will execute following steps
-            # This checks answer_type of question is defined in ANSWER_TYPE_KEY
-            if (value4['question']['answer_type'] != "text"):
-                if str(value4['question']['answer_type']) in ANSWER_TYPE_KEY:
-                    question_data['id'] = str(value4['question']['id'])
-                    question_data['question'] = re.sub(IMG_ALT_REGEX, lambda m: "".format(m.group(0)), value4['question']['content'])
-                    question_data['question'] = question_data['question']+"\n Question ID:: "+question_data['id']
+        if question_info[str(key4)]['success'] and str(value4['question']['id']) not in invalid_question_list and str(value4['question']['answer_type']) in ANSWER_TYPE_KEY: # If question response is success then only it will execute following steps
+            question_data['id'] = str(value4['question']['id'])
+            question = str(value4['question']['content'])
+            question_data['question'] = convert_question_content(question, question_data['id'], True)
+            question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
 
-                    if len(re.findall(MATHML_REGEX, question_data['question'])) > 0:
-                        question_data['question'] = re.sub(MATHML_REGEX, lambda x : mathml_to_latex(x, question_data['id']), question_data['question'])      
-                        
-                        question_data['question'] = re.sub(r"(\\overline{\)[\\ ]+})", lambda m:"\_\_\_\_\_\_".format(m.group(0)), question_data['question'])
-                        question_data['question'] = question_data['question'].replace('\_','_').replace('\\mathrm{__}','___')
-                        question_data['question'] = html2text.html2text(question_data['question'].replace("\n",""))
-                        question_data['question'] = re.sub(r"___", lambda m: ("\_\_\_") .format(m.group(0)), question_data['question'])
-                        question_data['question'] = question_data['question'].replace('\\___$','\\_$').replace('\overline{ }','\_\_\_\_\_\_').replace('\\__','\\_')
+            if len(str(value4['question']['unit'])) > 0 and value4['question']['unit'] is not None:
+                question_data['question'] = question_data['question'] + "\n\n \_\_\_\_\_\_ " + str(value4['question']['unit'])
 
-                    else:
-                        question_data['question'] = question_data['question'].replace('\n','').replace('\r','')
-                        question_data['question'] = question_data['question'].replace(url,'').replace('../..','').replace("..",'')
-                        question_data['question'] = re.sub(REGEX_IMAGE, lambda m: url+"{}".format(m.group(0)) if url not in m.group(0) else "{}".format(m.group(0)), question_data['question'])
-                        question_data['question'] = html2text.html2text(question_data['question'].replace("\/", "/").replace('&#10;', ''))
-                        question_data['question'] = re.sub(r"___", lambda m: ("\_\_\_") .format(m.group(0)), question_data['question'])
-                        question_data['question'] = question_data['question'].replace('$$','$')
-                       
-                    question_data['question'] = re.sub(REGEX_GIF, lambda m: "image/png".format(m.group(0)), question_data['question']) 
-                    question_data['question'] = re.sub(REGEX_BMP, lambda m: "image/png".format(m.group(0)), question_data['question'])
-                    question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
+            possible_answers = []
+            correct_answer = []
+            for answer in value4['possible_answers']:
+                answer_id = str(answer['id'])
+                answer_data = convert_question_content(answer['content'], answer_id, False)
+                possible_answers.append(answer_data)
+                if answer['is_correct']:
+                    correct_answer.append(answer_data)
+            if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]):
+                correct_answer = correct_answer[0]
+                question_data['hints'] = correct_answer[0]
 
-                    if len(str(value4['question']['unit'])) > 0 and value4['question']['unit'] is not None:
-                        question_data['question'] = question_data['question'] + "\n\n \_\_\_\_\_\_ " + str(value4['question']['unit'])
-        
-                    possible_answers = []
-                    correct_answer = []
-                    for answer in value4['possible_answers']:
-                        answer_data  = re.sub(IMG_ALT_REGEX, lambda m: "".format(m.group(0)), answer['content'])
-                        answer_data  = answer_data.replace(url, "").replace('../..','').replace("..",'')
-                        if len(re.findall(MATHML_REGEX, answer_data)) > 0:
-                            answer_data  = re.sub(MATHML_REGEX, lambda x : mathml_to_latex(x, str(answer['id'])), answer_data)
-    
-                        answer_data = re.sub(REGEX_INVALID_MATHML, lambda m: (m.group(0) + ' $')[1:] .format(m.group(0)), answer_data)
-                        answer_data = re.sub(r"\\overline{\)\s}", lambda m:"".format(m.group(0)), answer_data)
-                        answer_data = re.sub(REGEX_IMAGE, lambda m: url+"{}".format(m.group(0)) if url not in m.group(0) else "{}".format(m.group(0)), answer_data)
-                        answer_data = html2text.html2text(answer_data.replace("\n","").replace('&#10;',''))
-                        answer_data = answer_data.strip()
-                        answer_data = re.sub(REGEX_BMP, lambda m: "image/png".format(m.group(0)), answer_data) # converted bmp images to the png format as per ricecooker validation
-                        answer_data = re.sub(REGEX_GIF, lambda m: "image/png".format(m.group(0)), answer_data) # converted gif images to supported format of ricecooker
-                        possible_answers.append(answer_data)
-                        if answer['is_correct']:
-                            correct_answer.append(answer_data)
-                    if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]):
-                        correct_answer = correct_answer[0]
-                        question_data['hints'] = correct_answer[0]
-
-                    if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]) or str(value4['question']['answer_type']) == str(ANSWER_TYPE[1]):
-                        question_data[(ANSWER_TYPE_KEY[(value4['question']['answer_type'])][2])] = possible_answers
-                    question_data[(ANSWER_TYPE_KEY[(value4['question']['answer_type'])][0])] = correct_answer
-                    question_data['hints'] = correct_answer
-                    question_data["difficulty_level"] = value4['question']['difficulty_level']
-                    levels.append(question_data)
-        else:
-            continue
+            if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]) or str(value4['question']['answer_type']) == str(ANSWER_TYPE[1]):
+                question_data[(ANSWER_TYPE_KEY[(value4['question']['answer_type'])][2])] = possible_answers
+            question_data[(ANSWER_TYPE_KEY[(value4['question']['answer_type'])][0])] = correct_answer
+            question_data['hints'] = correct_answer
+            question_data["difficulty_level"] = value4['question']['difficulty_level']
+            levels.append(question_data)
     return levels
 
 def get_magogenie_info_url():
@@ -435,20 +394,33 @@ def create_question(raw_question):
             answers=raw_question["answers"],
             hints=raw_question.get("hints"),
         )
-    if raw_question["type"] == exercises.FREE_RESPONSE:
-        return questions.FreeResponseQuestion(
-            id=raw_question["id"],
-            question=raw_question["question"],
-            hints=raw_question.get("hints"),
-        )
-    if raw_question["type"] == exercises.PERSEUS_QUESTION:
-        return questions.PerseusQuestion(
-            id=raw_question["id"],
-            raw_data=raw_question["item_data"],
-            source_url="https://www.google.com/",
-        )
     else:
         raise UnknownQuestionTypeError("Unrecognized question type '{0}': accepted types are {1}".format(raw_question["type"], [key for key, value in exercises.question_choices]))
+
+def convert_question_content(content, q_id, flag):
+    content = re.sub(IMG_ALT_REGEX, lambda m: "".format(m.group(0)), content)
+    if flag:
+        content = content+" Question ID:: "+q_id
+        content = content.replace('$$','$')
+
+    if len(re.findall(MATHML_REGEX, content)) > 0:
+        content = re.sub(MATHML_REGEX, lambda x : mathml_to_latex(x, q_id), content)       
+        content = re.sub(r"(\\overline{\)[\\ ]+})", lambda m:"\_\_\_\_\_\_".format(m.group(0)), content)
+        content = content.replace('\_','_').replace('\\mathrm{__}','___')
+
+    if len(re.findall(REGEX_BASE64,content))  > 0:
+        content = content.replace('\n','').replace('\r','').replace('&#10;', '')
+
+    content = content.replace(url,'').replace('../..','').replace("..",'')
+    content = re.sub(REGEX_IMAGE, lambda m: url+"{}".format(m.group(0)) if url not in m.group(0) else "{}".format(m.group(0)), content)
+    content = html2text.html2text(content.replace("\/", "/"))
+    content = re.sub(r"___", lambda m: ("\_\_\_") .format(m.group(0)), content)
+    content = content.replace('\\___$','\\_$').replace('\overline{ }','\_\_\_\_\_\_').replace('\\__','\\_')
+    content = content.strip()
+    content = re.sub(REGEX_GIF, lambda m: "image/png".format(m.group(0)), content) 
+    content = re.sub(REGEX_BMP, lambda m: "image/png".format(m.group(0)), content)
+    return content
+
 
 def mathml_to_latex(match, q_id):
     regex = r"\\overline{\)(.*?)}"
