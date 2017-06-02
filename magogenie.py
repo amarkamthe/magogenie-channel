@@ -52,8 +52,6 @@ FILE_TYPE_MAPPING = {
     },
 }
 
-
-
 def guess_file_type(kind, filepath=None, youtube_id=None, web_url=None, encoding=None):
     """ guess_file_class: determines what file the content is
         Args:
