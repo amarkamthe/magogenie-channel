@@ -100,24 +100,22 @@ ANSWER_TYPE = [
 ANSWER_TYPE_KEY = {
     'radio': ('correct_answer', exercises.SINGLE_SELECTION, 'all_answers'),
     'multiple_select': ('correct_answers', exercises.MULTIPLE_SELECTION, 'all_answers'),
-    'number': ('answers', exercises.INPUT_QUESTION),
-    #'text': ('answers')
+    'number': ('answers', exercises.INPUT_QUESTION)
 }
 
-# List of question units 
+
 DESCRIPTION = "v0.1"
-arrlevels = []
 REGEX_IMAGE = re.compile('(\/assets.+?.(jpeg|jpg|png|gif){1})|\/wirispluginengine([^\"]+)')
 REGEX_BASE64 = re.compile('data:image\/[A-Za-z]*;base64,(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)*')
 REGEX_BMP = re.compile('((image\/bmp))')
 REGEX_GIF = re.compile('((image\/gif))')
-IMG_ALT_REGEX = r'\salt\s*=\"([^"]+)\"' # used to remove alt tag from questions
-MATHML_REGEX = re.compile(r"""(<math xmlns="http://www.w3.org/1998/Math/MathML">.*?</math>)""") # used to detect mathml in question
-REGEX_PHANTOM = r"(\\phantom{\\[a-zA-Z]+{[a-zA-Z0-9]+}{[a-zA-Z0-9]+}})" # used to remove unnecessry conversion of mathml
+IMG_ALT_REGEX = r'\salt\s*=\"([^"]+)\"' 
+MATHML_REGEX = re.compile(r"""(<math xmlns="http://www.w3.org/1998/Math/MathML">.*?</math>)""") 
+REGEX_PHANTOM = r"(\\phantom{\\[a-zA-Z]+{[a-zA-Z0-9]+}{[a-zA-Z0-9]+}})" 
 
 invalid_question_list = ['113178','119500','123348', '123350' , '123356', '123352', '123353','123351','123354','123355','123349','123357', \
                                  '126660', '45117', '112070','51216','136815','136816','136819']
-
+arrlevels = []
 # This method takes question id and process it
 def question_list(question_ids):
     levels = {}
