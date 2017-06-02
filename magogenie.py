@@ -118,7 +118,7 @@ invalid_question_list = ['113178','119500','123348', '123350' , '123356', '12335
 arrlevels = []
 # This method takes question id and process it
 def question_list(question_ids):
-    levels = {}
+    # levels = {}
     question_url = QUESTION_URL % (','.join(map(str, question_ids)))
     conn = urlopen(question_url)
     question_info = json.loads(conn.read().decode('utf-8'))
@@ -283,8 +283,8 @@ def construct_channel(result=None):
     result_data = get_magogenie_info_url()
     channel = nodes.ChannelNode(
         source_domain="magogenie.com",
-        source_id="Magogenie channel",
-        title="Magogenie channel ",
+        source_id="Magogenie channel with BB and CBSE",
+        title="Magogenie channel with BalBharati and CBSE ",
         thumbnail = "/Users/Admin/Documents/mago.png",
     )
     _build_tree(channel, result_data)
