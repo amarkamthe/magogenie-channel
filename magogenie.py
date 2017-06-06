@@ -110,11 +110,12 @@ REGEX_BASE64 = re.compile('data:image\/[A-Za-z]*;base64,(?:[A-Za-z0-9+\/]{4})*(?
 REGEX_BMP = re.compile('((image\/bmp))')
 REGEX_GIF = re.compile('((image\/gif))')
 IMG_ALT_REGEX = r'\salt\s*=\"([^"]+)\"' 
-MATHML_REGEX = re.compile(r"""(<math xmlns="http://www.w3.org/1998/Math/MathML">.*?</math>)""") 
+# MATHML_REGEX = re.compile(r"""(<math xmlns="http://www.w3.org/1998/Math/MathML">.*?</math>)""") 
 REGEX_PHANTOM = r"(\\phantom{\\[a-zA-Z]+{[a-zA-Z0-9]+}{[a-zA-Z0-9]+}})" 
 
-invalid_question_list = ['113178','119500','123348', '123350' , '123356', '123352', '123353','123351','123354','123355','123349','123357', \
-                                 '126660', '45117', '112070','51216','136815','136816','136819']
+invalid_question_list = ['113178','119500','123348', '123350' , '123356', '123352', '123353','123351','123354','123355','123349','123357','123358', \
+                                 '123359','123360','123361', '126660','123362', '123363', '123364','123365','123366','123367','45117', '112070','51216','136815','136816','136819','106239','106240', '106241', '106242', '106243', \
+                                 '106244', '106245', '142905', '142907', '142909', '142913', '143221', '49657', '49658', '121571']
 arrlevels = []
 # This method takes question id and process it
 def question_list(question_ids):
@@ -168,7 +169,7 @@ def get_magogenie_info_url():
 
     # To get boards in descending order used[::-1]
     # We have tesing here only for BalBharati board 
-    for key in sorted(data['boards'].keys())[::-1]:     
+    for key in ['BalBharati']:#sorted(data['boards'].keys())[::-1]:     
         value = data['boards'][key]
         board = dict()
         board['id'] = key
@@ -177,7 +178,7 @@ def get_magogenie_info_url():
         board['children'] = []
         # To get standards in ascending order
         # we have use 6th std for testing purpose
-        for key1 in sorted(value['standards'].keys()):  
+        for key1 in ['3']:#sorted(value['standards'].keys()):  
             value1 = value['standards'][key1]
             print (key+" Standards - " + key1)
             standards = dict()
@@ -195,7 +196,8 @@ def get_magogenie_info_url():
 
                 topics = []
                 # To get topic names under subjects
-                for key3, value3 in value2['topics'].items():
+                for key3 in ['Subtraction by Borrowing','Subtraction with Borrowing']: #value3 in value2['topics'].items():
+                    value3 = value2['topics'][key3]
                     topic_data = dict()
                     topic_data["ancestry"] = None
                     if value3['ancestry']:
@@ -283,8 +285,8 @@ def construct_channel(result=None):
     result_data = get_magogenie_info_url()
     channel = nodes.ChannelNode(
         source_domain="magogenie.com",
-        source_id="Magogenie channel with BB and CBSE",
-        title="Magogenie channel with BalBharati and CBSE ",
+        source_id="Magogenie channel with BB and CBSE fixes",
+        title="Magogenie channel with BalBharati and CBSE fixes",
         thumbnail = "/Users/Admin/Documents/mago.png",
     )
     _build_tree(channel, result_data)
@@ -396,32 +398,40 @@ def create_question(raw_question):
 def convert_question_content(content, q_id, flag):
     content = re.sub(IMG_ALT_REGEX, lambda m: "".format(m.group(0)), content)
     if flag:
-        content = content+" Question ID:: "+q_id
+        content = content + "Question ID::"+q_id
         content = content.replace('$$','$')
 
-    if len(re.findall(MATHML_REGEX, content)) > 0:
-        content = re.sub(MATHML_REGEX, lambda x : mathml_to_latex(x, q_id), content)       
-        content = re.sub(r"(\\overline{\)[\\ ]+})", lambda m:"\_\_\_\_\_\_".format(m.group(0)), content)
-        content = content.replace('\_','_').replace('\\mathrm{__}','___')
-
-    if len(re.findall(REGEX_BASE64,content))  > 0:
+    content = content.replace("\n", "@@@@")
+    print ("Before html2text:", content+"\n\n")
+    if len(re.findall(r"<math.*?</math>", content)) > 0:
+        content = re.sub(r"<math.*?</math>", lambda x : mathml_to_latex(x, q_id), content)       
+        content = re.sub(r"(\\overline{\)[\\ ]+})", lambda m:"\_\_\_\_\_\_\_\_\_".format(m.group(0)), content)
+        content = content.replace('\_','_').replace('\\mathrm{__}','___').replace('--',' - - -').replace('-',' -')
+    
+    content = content.replace("@@@@", "\n")   
+    if len(re.findall(REGEX_BASE64, content))  > 0:
         content = content.replace('\n','').replace('\r','').replace('&#10;', '')
 
     content = content.replace(url,'').replace('../..','').replace("..",'')
     content = re.sub(REGEX_IMAGE, lambda m: url+"{}".format(m.group(0)) if url not in m.group(0) else "{}".format(m.group(0)), content)
-    content = html2text.html2text(content.replace("\/", "/"))
+    content = html2text.html2text(content)
+    print ("After html2text:", content + "\n\n")
     content = re.sub(r"___", lambda m: ("\_\_\_") .format(m.group(0)), content)
-    content = content.replace('\\___$','\\_$').replace('\overline{ }','\_\_\_\_\_\_').replace('\\__','\\_')
-    content = content.strip()
+    content = content.replace('\\___$','\\_$').replace('\overline{ }','\_\_\_\_\_\_\_\_\_').replace('\\__','\\_')
     content = re.sub(REGEX_GIF, lambda m: "image/png".format(m.group(0)), content) 
     content = re.sub(REGEX_BMP, lambda m: "image/png".format(m.group(0)), content)
+    
+    if not flag:
+        content = content.replace('$$','$')
+    print ("content:",content+"\n\n")
     return content
 
 
 def mathml_to_latex(match, q_id):
     regex = r"\\overline{\)(.*?)}"
-    match = match.group().replace("&gt;",">")
-    match = match.replace('&nbsp;',' ')
+    match = match.group().replace("&gt;",">").replace('@@@@','\n')
+    # match = match.replace('&nbsp;',' ').replace('&#xA0;',' ')
+    print ("match:", match)
     path = "/Users/Admin/Documents/magogenie-channel/q_files"
     filename = os.path.join(path, q_id+".mml")
     with open(filename,"w") as f:
@@ -432,7 +442,8 @@ def mathml_to_latex(match, q_id):
         text = output.decode("utf-8")
         text = re.sub(REGEX_PHANTOM, lambda m:"$<br>$".format(m.group(0)), text)
         text = re.sub(r"\\hspace{.*?}", lambda m:" ".format(m.group(0)), text)
-        res = re.search(regex,text)
+        res = re.search(regex, text)
+       
         if res is not None:
             matches = re.finditer(regex, text)
             for matchNum, match in enumerate(matches):
@@ -442,6 +453,7 @@ def mathml_to_latex(match, q_id):
                     group_data = str(group).strip()
                     if group_data:
                         text = text.replace(str(match.group()),group_data)
+
         text = str(text).replace(" "," ").replace(" ", "\ ")
         return text
     except Exception as e:
