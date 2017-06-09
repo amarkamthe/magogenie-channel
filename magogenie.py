@@ -117,54 +117,61 @@ invalid_question_list = ['113178','119500','123348', '123350' , '123356', '12335
                                  '123359','123360','123361', '126660','123362', '123363', '123364','123365','123366','123367','45117', '112070','51216', \
                                  '136815','136816','136819','106239','106240', '106241', '106242', '106243','116548','116549','116550','116551','116552', \
                                  '116553', '116554','116555','116556', '116557', '116558', '116559', '116560', '116561', '116562', '88365', '88367', '88371', \
-                                 '12002', '116651', '142918','143434','143691', '88364', '88366', '88370', \
+                                 '12002', '116651', '142918','143434','143691', '88364', '88366', '88370', '112726', \
                                  '106244', '106245', '142905', '142907', '142909', '142913', '143221', '49657', '49658', '121571']
 arrlevels = []
 # This method takes question id and process it
 def question_list(question_ids):
     # levels = {}
-    question_url = QUESTION_URL % (','.join(map(str, question_ids)))
-    conn = urlopen(question_url)
-    question_info = json.loads(conn.read().decode('utf-8'))
-    conn.close()
-    levels = [] 
-    for key4, value4 in question_info.items():
-        question_data = {}
-        # this statement checks the success of question
-        if question_info[str(key4)]['success'] and str(value4['question']['id']) not in invalid_question_list and str(value4['question']['answer_type']) in ANSWER_TYPE_KEY: # If question response is success then only it will execute following steps
-            question_data['id'] = str(value4['question']['id'])
-            question = str(value4['question']['content'])
-            question_data['question'] = convert_question_content(question, question_data['id'], True)
-            question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
+    try:  
+        question_url = QUESTION_URL % (','.join(map(str, question_ids)))
+        conn = urlopen(question_url)
+        question_info = json.loads(conn.read().decode('utf-8'))
+        # print ("question_info:", question_info)
+        conn.close()
 
-            if len(str(value4['question']['unit'])) > 0 and value4['question']['unit'] is not None:
-                question_data['question'] = question_data['question'] + "\n\n \_\_\_\_\_\_ " + str(value4['question']['unit'])
+        levels = [] 
+        for key4, value4 in question_info.items():
+            question_data = {}
+            # this statement checks the success of question
+            if question_info[str(key4)]['success'] and str(value4['question']['id']) not in invalid_question_list and str(value4['question']['answer_type']) in ANSWER_TYPE_KEY: # If question response is success then only it will execute following steps
+                question_data['id'] = str(value4['question']['id'])
+                question = str(value4['question']['content'])
+                question_data['question'] = convert_question_content(question, question_data['id'], True)
+                question_data['type'] = ANSWER_TYPE_KEY[value4['question']['answer_type']][1]
 
-            possible_answers = []
-            correct_answer = []
-            for answer in value4['possible_answers']:
-                answer_id = str(answer['id'])
-                answer_data = convert_question_content(answer['content'], answer_id, False)
-                possible_answers.append(answer_data)
-                if answer['is_correct']:
-                    correct_answer.append(answer_data)
-            if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]):
-                correct_answer = correct_answer[0]
-                question_data['hints'] = correct_answer[0]
+                if len(str(value4['question']['unit'])) > 0 and value4['question']['unit'] is not None:
+                    question_data['question'] = question_data['question'] + "\n\n \_\_\_\_\_\_ " + str(value4['question']['unit'])
 
-            if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]) or str(value4['question']['answer_type']) == str(ANSWER_TYPE[1]):
-                question_data[(ANSWER_TYPE_KEY[(value4['question']['answer_type'])][2])] = possible_answers
-            question_data[(ANSWER_TYPE_KEY[(value4['question']['answer_type'])][0])] = correct_answer
-            question_data['hints'] = correct_answer
-            question_data["difficulty_level"] = value4['question']['difficulty_level']
-            levels.append(question_data)
-    return levels
+                possible_answers = []
+                correct_answer = []
+                for answer in value4['possible_answers']:
+                    answer_id = str(answer['id'])
+                    answer_data = convert_question_content(answer['content'], answer_id, False)
+                    possible_answers.append(answer_data)
+                    if answer['is_correct']:
+                        correct_answer.append(answer_data)
+                if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]):
+                    correct_answer = correct_answer[0]
+                    question_data['hints'] = correct_answer[0]
+
+                if str(value4['question']['answer_type']) == str(ANSWER_TYPE[0]) or str(value4['question']['answer_type']) == str(ANSWER_TYPE[1]):
+                    question_data[(ANSWER_TYPE_KEY[(value4['question']['answer_type'])][2])] = possible_answers
+                question_data[(ANSWER_TYPE_KEY[(value4['question']['answer_type'])][0])] = correct_answer
+                question_data['hints'] = correct_answer
+                question_data["difficulty_level"] = value4['question']['difficulty_level']
+                levels.append(question_data)
+        return levels
+    except Exception as e:
+        print (e)
+        pass
+
 
 def get_magogenie_info_url():
     SAMPLE = []
     data = {}
     try:
-        conn = urlopen(TREE_URL,timeout=30)
+        conn = urlopen(TREE_URL)
         data = json.loads(conn.read().decode('utf-8'))
         conn.close()
     except Exception as e:
@@ -182,6 +189,7 @@ def get_magogenie_info_url():
         # To get standards in ascending order
         # we have use 6th std for testing purpose
         for key1 in ['3','4','5','6','7','8']:#sorted(value['standards'].keys()):  
+
             value1 = value['standards'][key1]
             print (key+" Standards - " + key1)
             standards = dict()
@@ -224,9 +232,16 @@ def get_magogenie_info_url():
                             p.join()
                         except Exception as e:
                             print (e)
-                        
-                        # To convert multiple list into single list
-                        newlist = list(itertools.chain(*arrlevels))  
+                        # removed empty list if we don't get response of questoions    
+                        m = []
+                        # print ("arrlevels:",arrlevels)
+                        for arrlevel in arrlevels:
+                            if arrlevel is not None:
+                                if len(arrlevel)>0:
+                                    m.append(arrlevel)
+
+                                # To convert multiple list into single list
+                        newlist = list(itertools.chain(*m))             
                         # To sort data levelwise 
                         arrlevels = sorted(newlist, key=lambda k: k["id"])  
                         newlist = []
@@ -239,10 +254,11 @@ def get_magogenie_info_url():
                                 if str(i["difficulty_level"]) == "3":
                                     val = "Challenge Set"
                                     val1 = "Challenge_Set"   
+                                    source_id_unique = val1 + "_" + str(value3['id'])  
                                 else:
                                     val = 'Level ' + str(i["difficulty_level"])
                                     val1 = 'Level_' + str(i["difficulty_level"])
-                                source_id_unique = val1 + "_" + str(value3['id'])  
+                                    source_id_unique = val1 + "_" + str(value3['id'])  
                                 levels[diff] = {'id': source_id_unique, 'title': val, 'questions': [], 'description':DESCRIPTION, 'mastery_model': exercises.M_OF_N, 'license': licenses.ALL_RIGHTS_RESERVED, 'domain_ns': 'GreyKite Technologies Pvt. Ltd.', 'Copyright Holder':'GreyKite Technologies Pvt. Ltd.'}
                             levels[diff]["questions"].append(i)
                         arrlevels = []
@@ -406,13 +422,13 @@ def convert_question_content(content, q_id, flag):
         content = content.replace('$$','$')
 
     content = content.replace("\n", "@@@@")
-    print ("Before html2text:", content+"\n\n")
+    # print ("Before html2text:", content+"\n\n")
     if len(re.findall(r"<math.*?</math>", content)) > 0:
         content = re.sub(r"<math.*?</math>", lambda x : mathml_to_latex(x, q_id), content)       
         content = re.sub(r"(\\overline{\)[\\ ]+})", lambda m:"\_\_\_\_\_\_\_\_\_".format(m.group(0)), content)
         content = content.replace('\_','_').replace('\\mathrm{__}','___').replace('--',' - - -').replace('-',' -')
     
-    print ("After convert mathml to latext:", content+"\n\n")
+    # print ("After convert mathml to latext:", content+"\n\n")
 
     content = content.replace("@@@@", "\n")   
     if len(re.findall(REGEX_BASE64, content))  > 0:
@@ -423,7 +439,7 @@ def convert_question_content(content, q_id, flag):
     content = html2text.html2text(content)
    
     content = content.replace("\\\\","\\")
-    print ("After html2text:", content + "\n\n")
+    # print ("After html2text:", content + "\n\n")
     content = re.sub(r"___", lambda m: ("\_\_\_") .format(m.group(0)), content)
     content = content.replace('\\___$','\\_$').replace('\overline{ }','\_\_\_\_\_\_\_\_\_').replace('\\__','\\_').replace("\\_","\_")
     content = re.sub(REGEX_GIF, lambda m: "image/png".format(m.group(0)), content) 
@@ -431,8 +447,8 @@ def convert_question_content(content, q_id, flag):
     
     if not flag:
         content = content.replace('$$','$')
-    else:
-        print ("content:",content + "Question ID::"+q_id)
+    #else:
+    #    print ("content:",content + "Question ID::"+q_id)
     return content
 
 
@@ -449,7 +465,7 @@ def mathml_to_latex(match, q_id):
         p = subprocess.Popen(["xsltproc", "mmltex.xsl", filename], stdout=subprocess.PIPE)
         output, err = p.communicate() 
         text = output.decode("utf-8")
-        print ("original converstion of mathml:", text +"\n")
+        # print ("original converstion of mathml:", text +"\n")
         text = re.sub(REGEX_PHANTOM, lambda m:"$<br>$".format(m.group(0)), text)
         text = re.sub(r"\\hspace{.*?}", lambda m:" ".format(m.group(0)), text)
         res = re.search(regex, text)
